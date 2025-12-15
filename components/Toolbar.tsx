@@ -1,0 +1,416 @@
+import React, { useRef, useState, useEffect } from 'react';
+import { 
+  Pencil, 
+  Eraser, 
+  Pipette, 
+  Trash2, 
+  Download, 
+  Grid3X3, 
+  Image as ImageIcon,
+  Square,
+  Circle,
+  Clock,
+  ChevronDown,
+  ChevronUp
+} from 'lucide-react';
+import { ToolType, PRESETS, BoardStyle, Language, Theme } from '../types';
+import { translations } from '../utils/translations';
+
+interface ToolbarProps {
+  tool: ToolType;
+  setTool: (t: ToolType) => void;
+  activeColor: string;
+  setActiveColor: (c: string) => void;
+  gridSize: number;
+  setGridSize: (s: number) => void;
+  onClear: () => void;
+  onDownload: () => void;
+  onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  showGridLines: boolean;
+  setShowGridLines: (v: boolean) => void;
+  boardStyle: BoardStyle;
+  setBoardStyle: (s: BoardStyle) => void;
+  beadSize: number;
+  setBeadSize: (s: number) => void;
+  lang: Language;
+  theme: Theme;
+}
+
+const Toolbar: React.FC<ToolbarProps> = ({
+  tool, setTool,
+  activeColor, setActiveColor,
+  gridSize, setGridSize,
+  onClear,
+  onDownload,
+  onUpload,
+  showGridLines, setShowGridLines,
+  boardStyle, setBoardStyle,
+  beadSize, setBeadSize,
+  lang,
+  theme
+}) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const isDark = theme === 'dark';
+  
+  // Local state for the custom input to allow typing
+  const [customSize, setCustomSize] = useState<string>(gridSize.toString());
+  
+  // Recent Colors State
+  const [recentColors, setRecentColors] = useState<string[]>([]);
+  const [showRecent, setShowRecent] = useState<boolean>(true);
+
+  const t = translations[lang];
+
+  // Sync local input when external grid size changes
+  useEffect(() => {
+    setCustomSize(gridSize.toString());
+  }, [gridSize]);
+
+  // Track active color usage for history
+  useEffect(() => {
+    if (!activeColor || activeColor === 'transparent') return;
+
+    const handler = setTimeout(() => {
+      setRecentColors(prev => {
+        // If the color is already the most recent, do nothing
+        if (prev[0] === activeColor) return prev;
+        // Otherwise, move it to front or add it
+        const filtered = prev.filter(c => c !== activeColor);
+        return [activeColor, ...filtered].slice(0, 12); // Limit to 12 colors
+      });
+    }, 500); // Debounce to capture final color after picking
+
+    return () => clearTimeout(handler);
+  }, [activeColor]);
+
+  const handleCustomSizeCommit = () => {
+    let val = parseInt(customSize, 10);
+    
+    if (isNaN(val)) {
+      setCustomSize(gridSize.toString());
+      return;
+    }
+
+    // Enforce limits 4 - 40
+    if (val < 4) val = 4;
+    if (val > 40) val = 40;
+
+    setCustomSize(val.toString());
+    if (val !== gridSize) {
+      setGridSize(val);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleCustomSizeCommit();
+      (e.target as HTMLInputElement).blur();
+    }
+  };
+
+  const colors = [
+    '#000000', '#1a1c2c', '#5d275d', '#b13e53', '#ef7d57',
+    '#ffcd75', '#a7f070', '#38b764', '#257179', '#29366f',
+    '#3b5dc9', '#41a6f6', '#73eff7', '#f4f4f4', '#94b0c2',
+    '#566c86', '#333c57'
+  ];
+
+  const handleFileClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  // Styles based on theme
+  const containerClass = isDark 
+    ? 'bg-slate-800/50 border-slate-700 text-slate-100' 
+    : 'bg-white/80 border-slate-200 text-slate-800 shadow-slate-200';
+  
+  const labelClass = isDark ? 'text-slate-400' : 'text-slate-500';
+  
+  const inputContainerClass = isDark 
+    ? 'bg-slate-900/50 border-slate-700/50' 
+    : 'bg-slate-100 border-slate-200';
+
+  const inputTextClass = isDark ? 'text-white' : 'text-slate-800';
+
+  const btnBaseClass = isDark 
+    ? 'bg-slate-700 text-slate-400 border-slate-600 hover:bg-slate-600 hover:text-slate-200' 
+    : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200 hover:text-slate-800';
+  
+  const btnActiveClass = isDark 
+    ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20' 
+    : 'bg-blue-500 border-blue-400 text-white shadow-lg shadow-blue-500/20';
+
+  return (
+    <div className={`flex flex-col gap-6 p-5 backdrop-blur-xl border rounded-2xl shadow-xl w-full max-w-xs h-fit overflow-y-auto max-h-[90vh] transition-colors duration-300 ${containerClass}`}>
+      
+      {/* --- Size Selector --- */}
+      <div>
+        <label className={`text-xs font-semibold uppercase tracking-wider mb-2 block ${labelClass}`}>
+          {t.size_label}
+        </label>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-2">
+            {PRESETS.map(size => (
+              <button
+                key={size}
+                type="button"
+                onClick={() => setGridSize(size)}
+                className={`
+                  flex-1 px-3 py-1.5 text-sm font-medium rounded-md border transition-all
+                  ${gridSize === size ? btnActiveClass : btnBaseClass}
+                `}
+              >
+                {size}
+              </button>
+            ))}
+          </div>
+          
+          {/* Custom Input */}
+          <div className={`flex items-center gap-2 p-2 rounded-lg border ${inputContainerClass}`}>
+             <span className={`text-xs font-medium whitespace-nowrap px-1 ${labelClass}`}>{t.custom_size}:</span>
+             <input 
+                type="number"
+                min={4}
+                max={40}
+                value={customSize}
+                onChange={(e) => setCustomSize(e.target.value)}
+                onBlur={handleCustomSizeCommit}
+                onKeyDown={handleKeyDown}
+                className={`w-full bg-transparent text-sm text-right focus:outline-none placeholder-slate-400 ${inputTextClass}`}
+                placeholder="4-40"
+             />
+             <span className="text-xs text-slate-400 pr-1">px</span>
+          </div>
+        </div>
+      </div>
+
+      {/* --- Board Style --- */}
+      <div>
+        <label className={`text-xs font-semibold uppercase tracking-wider mb-2 block ${labelClass}`}>{t.board_style}</label>
+        <div className="grid grid-cols-2 gap-2">
+           <ToolButton 
+             active={boardStyle === BoardStyle.SQUARE}
+             onClick={() => setBoardStyle(BoardStyle.SQUARE)}
+             icon={<Square size={18} />}
+             label={t.style_square}
+             theme={theme}
+           />
+           <ToolButton 
+             active={boardStyle === BoardStyle.BEAD}
+             onClick={() => setBoardStyle(BoardStyle.BEAD)}
+             icon={<Circle size={18} />}
+             label={t.style_bead}
+             theme={theme}
+           />
+        </div>
+
+        {/* Bead Size Slider - Only visible in Bead mode */}
+        {boardStyle === BoardStyle.BEAD && (
+            <div className={`mt-3 p-2 rounded-lg border animate-in fade-in slide-in-from-top-2 duration-200 ${isDark ? 'bg-slate-900/30 border-slate-700/30' : 'bg-slate-50 border-slate-200'}`}>
+                <div className="flex justify-between items-center mb-1">
+                    <span className="text-[10px] uppercase font-bold text-slate-500">{t.bead_diameter}</span>
+                    <span className={`text-xs font-mono ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{beadSize}%</span>
+                </div>
+                <input 
+                    type="range" 
+                    min="20" 
+                    max="100" 
+                    step="5"
+                    value={beadSize}
+                    onChange={(e) => setBeadSize(Number(e.target.value))}
+                    className={`w-full h-1.5 rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400 ${isDark ? 'bg-slate-700' : 'bg-slate-300'}`}
+                />
+            </div>
+        )}
+      </div>
+
+      {/* --- Tools --- */}
+      <div>
+        <label className={`text-xs font-semibold uppercase tracking-wider mb-2 block ${labelClass}`}>{t.tools_label}</label>
+        <div className="grid grid-cols-4 gap-2">
+          <ToolButton 
+            active={tool === ToolType.PEN} 
+            onClick={() => setTool(ToolType.PEN)} 
+            icon={<Pencil size={18} />} 
+            label={t.tool_pen}
+            theme={theme}
+          />
+          <ToolButton 
+            active={tool === ToolType.ERASER} 
+            onClick={() => setTool(ToolType.ERASER)} 
+            icon={<Eraser size={18} />} 
+            label={t.tool_eraser}
+            theme={theme}
+          />
+          <ToolButton 
+            active={tool === ToolType.EYEDROPPER} 
+            onClick={() => setTool(ToolType.EYEDROPPER)} 
+            icon={<Pipette size={18} />} 
+            label={t.tool_pick}
+            theme={theme}
+          />
+          <ToolButton 
+            active={showGridLines} 
+            onClick={() => setShowGridLines(!showGridLines)} 
+            icon={<Grid3X3 size={18} />} 
+            label={t.tool_grid}
+            theme={theme}
+          />
+        </div>
+      </div>
+
+      {/* --- Colors --- */}
+      <div>
+        <label className={`text-xs font-semibold uppercase tracking-wider mb-2 block ${labelClass}`}>{t.palette_label}</label>
+        <div className="grid grid-cols-6 gap-2 mb-3">
+          {colors.map(c => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setActiveColor(c)}
+              className={`
+                w-8 h-8 rounded-full border-2 transition-transform hover:scale-110
+                ${activeColor === c ? 'border-white ring-2 ring-blue-500' : 'border-transparent'}
+              `}
+              style={{ backgroundColor: c }}
+            />
+          ))}
+        </div>
+        <div className={`flex items-center gap-2 p-2 rounded-lg ${isDark ? 'bg-slate-700/50' : 'bg-slate-200/50'}`}>
+          <input 
+            type="color" 
+            value={activeColor}
+            onChange={(e) => setActiveColor(e.target.value)}
+            className="w-8 h-8 rounded cursor-pointer bg-transparent border-none p-0"
+          />
+          <span className={`text-xs font-mono uppercase ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{activeColor}</span>
+        </div>
+      </div>
+
+      {/* --- Recent Colors --- */}
+      {recentColors.length > 0 && (
+          <div className={`pt-2 border-t ${isDark ? 'border-slate-700/50' : 'border-slate-200'}`}>
+            <button 
+                type="button"
+                onClick={() => setShowRecent(!showRecent)}
+                className={`flex items-center justify-between w-full text-xs font-semibold uppercase tracking-wider mb-2 transition-colors ${isDark ? 'text-slate-400 hover:text-slate-300' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+                <span className="flex items-center gap-1.5">
+                    <Clock size={12} />
+                    {t.recent_label}
+                </span>
+                {showRecent ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+            
+            {showRecent && (
+                <div className="grid grid-cols-6 gap-2 mb-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                {recentColors.map(c => (
+                    <button
+                    key={c}
+                    type="button"
+                    onClick={() => setActiveColor(c)}
+                    className={`
+                        w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 shadow-sm
+                        ${activeColor === c ? 'border-white ring-2 ring-blue-500/50' : (isDark ? 'border-slate-600/50' : 'border-slate-300')}
+                    `}
+                    style={{ backgroundColor: c }}
+                    title={c}
+                    />
+                ))}
+                </div>
+            )}
+          </div>
+      )}
+
+      {/* --- Actions --- */}
+      <div className={`space-y-3 pt-4 border-t ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+        
+        <input 
+          type="file" 
+          ref={fileInputRef}
+          onChange={onUpload}
+          accept="image/*"
+          className="hidden" 
+        />
+        
+        <ActionButton 
+          onClick={handleFileClick} 
+          icon={<ImageIcon size={18} />} 
+          label={t.upload_image} 
+          variant="secondary"
+          theme={theme}
+        />
+
+        <div className="grid grid-cols-2 gap-2">
+            <ActionButton 
+                onClick={onClear} 
+                icon={<Trash2 size={18} />} 
+                label={t.clear} 
+                variant="danger"
+                theme={theme}
+            />
+            <ActionButton 
+                onClick={onDownload} 
+                icon={<Download size={18} />} 
+                label={t.save_image} 
+                variant="primary"
+                theme={theme}
+            />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Sub-components for styling ---
+
+const ToolButton = ({ active, onClick, icon, label, theme }: any) => {
+  const isDark = theme === 'dark';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      className={`
+        flex items-center justify-center gap-2 p-3 rounded-xl transition-all
+        ${active 
+          ? (isDark ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25' : 'bg-blue-500 text-white shadow-lg shadow-blue-500/25')
+          : (isDark ? 'bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-slate-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800')}
+      `}
+    >
+      {icon}
+    </button>
+  );
+};
+
+const ActionButton = ({ onClick, icon, label, variant = 'primary', theme }: any) => {
+  const isDark = theme === 'dark';
+  
+  const styles = {
+    primary: isDark 
+        ? 'bg-slate-700 hover:bg-slate-600 text-white border-slate-600'
+        : 'bg-slate-800 hover:bg-slate-700 text-white border-slate-800',
+    secondary: isDark
+        ? 'bg-slate-700/50 hover:bg-slate-700 text-slate-300 border-dashed border-slate-500'
+        : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-dashed border-slate-300',
+    danger: isDark
+        ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border-red-500/30'
+        : 'bg-red-50 hover:bg-red-100 text-red-600 border-red-200',
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`
+        flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg text-sm font-medium border transition-all
+        ${styles[variant as keyof typeof styles]}
+      `}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+};
+
+export default Toolbar;
