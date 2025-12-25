@@ -11,9 +11,10 @@ import {
   Circle,
   Clock,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Palette
 } from 'lucide-react';
-import { ToolType, PRESETS, BoardStyle, Language, Theme } from '../types';
+import { ToolType, APP_CONFIG, BoardStyle, Language, Theme } from '../types';
 import { translations } from '../utils/translations';
 
 interface ToolbarProps {
@@ -26,6 +27,7 @@ interface ToolbarProps {
   onClear: () => void;
   onDownload: () => void;
   onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onIdentifyColors: () => void;
   showGridLines: boolean;
   setShowGridLines: (v: boolean) => void;
   boardStyle: BoardStyle;
@@ -43,6 +45,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onClear,
   onDownload,
   onUpload,
+  onIdentifyColors,
   showGridLines, setShowGridLines,
   boardStyle, setBoardStyle,
   beadSize, setBeadSize,
@@ -91,9 +94,9 @@ const Toolbar: React.FC<ToolbarProps> = ({
       return;
     }
 
-    // Enforce limits 4 - 40
-    if (val < 4) val = 4;
-    if (val > 40) val = 40;
+    // Enforce limits from config
+    if (val < APP_CONFIG.MIN_GRID_SIZE) val = APP_CONFIG.MIN_GRID_SIZE;
+    if (val > APP_CONFIG.MAX_GRID_SIZE) val = APP_CONFIG.MAX_GRID_SIZE;
 
     setCustomSize(val.toString());
     if (val !== gridSize) {
@@ -150,7 +153,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
         </label>
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap gap-2">
-            {PRESETS.map(size => (
+            {APP_CONFIG.PRESETS.map(size => (
               <button
                 key={size}
                 type="button"
@@ -170,14 +173,14 @@ const Toolbar: React.FC<ToolbarProps> = ({
              <span className={`text-xs font-medium whitespace-nowrap px-1 ${labelClass}`}>{t.custom_size}:</span>
              <input 
                 type="number"
-                min={4}
-                max={40}
+                min={APP_CONFIG.MIN_GRID_SIZE}
+                max={APP_CONFIG.MAX_GRID_SIZE}
                 value={customSize}
                 onChange={(e) => setCustomSize(e.target.value)}
                 onBlur={handleCustomSizeCommit}
                 onKeyDown={handleKeyDown}
                 className={`w-full bg-transparent text-sm text-right focus:outline-none placeholder-slate-400 ${inputTextClass}`}
-                placeholder="4-40"
+                placeholder={`${APP_CONFIG.MIN_GRID_SIZE}-${APP_CONFIG.MAX_GRID_SIZE}`}
              />
              <span className="text-xs text-slate-400 pr-1">px</span>
           </div>
@@ -333,14 +336,25 @@ const Toolbar: React.FC<ToolbarProps> = ({
           className="hidden" 
         />
         
-        <ActionButton 
-          onClick={handleFileClick} 
-          icon={<ImageIcon size={18} />} 
-          label={t.upload_image} 
-          variant="secondary"
-          theme={theme}
-        />
+        {/* Row 1: Upload + Identify */}
+        <div className="grid grid-cols-2 gap-2">
+            <ActionButton 
+                onClick={handleFileClick} 
+                icon={<ImageIcon size={18} />} 
+                label={t.upload_image} 
+                variant="secondary"
+                theme={theme}
+            />
+            <ActionButton 
+                onClick={onIdentifyColors} 
+                icon={<Palette size={18} />} 
+                label={t.identify_colors} 
+                variant="secondary"
+                theme={theme}
+            />
+        </div>
 
+        {/* Row 2: Clear + Save */}
         <div className="grid grid-cols-2 gap-2">
             <ActionButton 
                 onClick={onClear} 

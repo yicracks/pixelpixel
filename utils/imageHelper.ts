@@ -3,7 +3,7 @@ import { rgbToHex } from './colorUtils';
 
 /**
  * Processes an uploaded image file and converts it into a pixel grid.
- * It resizes the image to match the target grid dimensions.
+ * It resizes the image to fit within the target grid dimensions while maintaining aspect ratio.
  */
 export const processImageToGrid = (
   file: File,
@@ -27,24 +27,36 @@ export const processImageToGrid = (
         canvas.width = cols;
         canvas.height = rows;
 
-        // Draw and resize image
-        ctx.drawImage(img, 0, 0, cols, rows);
+        // Clear canvas to ensure transparent background
+        ctx.clearRect(0, 0, cols, rows);
+
+        // Calculate scale to fit within dimensions while maintaining aspect ratio
+        const scale = Math.min(cols / img.width, rows / img.height);
+        const w = img.width * scale;
+        const h = img.height * scale;
+        
+        // Calculate centered position
+        const x = (cols - w) / 2;
+        const y = (rows - h) / 2;
+
+        // Draw image centered and scaled
+        ctx.drawImage(img, x, y, w, h);
 
         // Extract pixel data
         const imageData = ctx.getImageData(0, 0, cols, rows);
         const data = imageData.data;
         const newGrid: GridData = [];
 
-        for (let y = 0; y < rows; y++) {
+        for (let rIndex = 0; rIndex < rows; rIndex++) {
           const row: string[] = [];
-          for (let x = 0; x < cols; x++) {
-            const index = (y * cols + x) * 4;
+          for (let cIndex = 0; cIndex < cols; cIndex++) {
+            const index = (rIndex * cols + cIndex) * 4;
             const r = data[index];
             const g = data[index + 1];
             const b = data[index + 2];
             const a = data[index + 3];
 
-            // If fully transparent, use transparent string, else hex
+            // If fully transparent (or close to it), use transparent string, else hex
             if (a < 50) {
               row.push('transparent');
             } else {

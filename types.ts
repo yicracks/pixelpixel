@@ -23,4 +23,14 @@ export type Theme = 'dark' | 'light';
 
 export const DEFAULT_COLOR = '#000000';
 export const EMPTY_COLOR = 'transparent'; // Represents an erased/empty cell
-export const PRESETS = [8, 16, 32];
+
+export const APP_CONFIG = {
+  DEFAULT_GRID_SIZE: 40,
+  MIN_GRID_SIZE: 8,
+  MAX_GRID_SIZE: 100,
+  DEFAULT_BEAD_SIZE: 85,
+  PRESETS: [20, 40, 60]
+};
+
+// Deprecated: usage should move to APP_CONFIG.PRESETS, keeping for backward compatibility if needed temporarily
+export const PRESETS = APP_CONFIG.PRESETS;

@@ -4,9 +4,11 @@ import Grid from './components/Grid';
 import Toolbar from './components/Toolbar';
 import ClearConfirmationModal from './components/ClearConfirmationModal';
 import SettingsModal from './components/SettingsModal';
-import { GridData, ToolType, DEFAULT_COLOR, EMPTY_COLOR, BoardStyle, Language, Theme } from './types';
+import DominantColorsModal from './components/DominantColorsModal';
+import { GridData, ToolType, DEFAULT_COLOR, EMPTY_COLOR, BoardStyle, Language, Theme, APP_CONFIG } from './types';
 import { processImageToGrid, exportGridToImage } from './utils/imageHelper';
 import { translations } from './utils/translations';
+import { reduceGridToAverageColors, getDominantColors, applyPaletteToGrid } from './utils/colorUtils';
 
 // Helper to create a fresh grid
 const createGrid = (size: number): GridData => {
@@ -19,14 +21,14 @@ const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>('dark');
   
   // State
-  const [gridSize, setGridSize] = useState<number>(16);
+  const [gridSize, setGridSize] = useState<number>(APP_CONFIG.DEFAULT_GRID_SIZE);
   // Initialize grid immediately with the default size
-  const [grid, setGrid] = useState<GridData>(() => createGrid(16));
+  const [grid, setGrid] = useState<GridData>(() => createGrid(APP_CONFIG.DEFAULT_GRID_SIZE));
   const [activeColor, setActiveColor] = useState<string>(DEFAULT_COLOR);
   const [tool, setTool] = useState<ToolType>(ToolType.PEN);
   const [showGridLines, setShowGridLines] = useState<boolean>(true);
   const [boardStyle, setBoardStyle] = useState<BoardStyle>(BoardStyle.SQUARE);
-  const [beadSize, setBeadSize] = useState<number>(85); // Percentage 20-100
+  const [beadSize, setBeadSize] = useState<number>(APP_CONFIG.DEFAULT_BEAD_SIZE); // Percentage 20-100
 
   // History State
   const [history, setHistory] = useState<GridData[]>([]);
@@ -36,6 +38,10 @@ const App: React.FC = () => {
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
   const [skipClearConfirm, setSkipClearConfirm] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  
+  // Dominant Colors Modal State
+  const [isColorModalOpen, setIsColorModalOpen] = useState(false);
+  const [dominantColors, setDominantColors] = useState<string[]>([]);
 
   // Get current translations
   const t = translations[lang];
@@ -129,6 +135,19 @@ const App: React.FC = () => {
     }
   };
 
+  const handleIdentifyColors = () => {
+    const colors = getDominantColors(grid, 10);
+    setDominantColors(colors);
+    setIsColorModalOpen(true);
+  };
+
+  const handleApplyPalette = (selectedColors: string[]) => {
+    const newGrid = applyPaletteToGrid(grid, selectedColors);
+    setGrid(newGrid);
+    addToHistory(newGrid);
+    setIsColorModalOpen(false);
+  };
+
   const toggleLanguage = () => {
     setLang(prev => prev === 'zh' ? 'en' : 'zh');
   };
@@ -196,6 +215,7 @@ const App: React.FC = () => {
             onClear={handleClearRequest}
             onDownload={handleDownload}
             onUpload={handleUpload}
+            onIdentifyColors={handleIdentifyColors}
             showGridLines={showGridLines}
             setShowGridLines={setShowGridLines}
             boardStyle={boardStyle}
@@ -268,6 +288,15 @@ const App: React.FC = () => {
         theme={theme}
         setTheme={setTheme}
         lang={lang}
+      />
+
+      <DominantColorsModal
+        isOpen={isColorModalOpen}
+        onClose={() => setIsColorModalOpen(false)}
+        colors={dominantColors}
+        lang={lang}
+        theme={theme}
+        onApply={handleApplyPalette}
       />
     </div>
   );
