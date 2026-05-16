@@ -171,7 +171,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className={`min-h-screen flex flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden transition-colors duration-500 ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+    <div className={`min-h-screen flex flex-col items-center justify-center p-3 md:p-8 relative overflow-hidden transition-colors duration-500 ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
         
       {/* Background decoration */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
@@ -179,7 +179,7 @@ const App: React.FC = () => {
          <div className={`absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] transition-colors duration-500 ${isDark ? 'bg-purple-600/10' : 'bg-purple-400/20'}`}></div>
       </div>
 
-      <header className="mb-8 z-10 text-center relative w-full max-w-6xl">
+      <header className="mb-6 md:mb-8 z-10 text-center relative w-full max-w-6xl px-2">
         {/* Desktop Controls */}
         <div className="absolute right-0 top-0 hidden md:flex items-center gap-2">
             <button 
@@ -213,13 +213,13 @@ const App: React.FC = () => {
             </button>
         </div>
 
-        <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400 mb-2">
+        <h1 className="text-3xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400 mb-2">
           {t.title}
         </h1>
         <p className={isDark ? "text-slate-400" : "text-slate-500"}>{t.subtitle}</p>
       </header>
 
-      <main className="w-full max-w-6xl z-10 flex flex-col md:flex-row gap-8 items-start justify-center">
+      <main className="w-full max-w-6xl z-10 flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-start justify-center">
         
         {/* Left Control Panel (Mobile: Top) */}
         <section className="w-full md:w-auto order-2 md:order-1 flex justify-center">
@@ -246,7 +246,7 @@ const App: React.FC = () => {
         </section>
 
         {/* Center Canvas */}
-        <section className={`flex-1 order-1 md:order-2 p-4 md:p-8 rounded-3xl border shadow-2xl backdrop-blur-sm flex flex-col items-center transition-colors duration-300 ${isDark ? 'bg-slate-800/30 border-slate-700/50' : 'bg-white/60 border-slate-200'}`}>
+        <section className={`flex-1 order-1 md:order-2 p-3 md:p-8 rounded-2xl md:rounded-3xl border shadow-2xl backdrop-blur-sm flex flex-col items-center transition-colors duration-300 ${isDark ? 'bg-slate-800/30 border-slate-700/50' : 'bg-white/60 border-slate-200'}`}>
            
            {/* Canvas Header (Icons + Undo/Redo/Clear) */}
            <div className="w-full flex items-center justify-between mb-6">

@@ -242,7 +242,7 @@ const Grid: React.FC<GridProps> = ({
         onMouseUp={handleMouseUp}
         style={{
           display: 'block',
-          width: 'min(600px, 90vw)', 
+          width: 'min(600px, 86vw)', 
           aspectRatio: `${grid[0].length} / ${grid.length}`,
           cursor: tool === ToolType.EYEDROPPER ? 'crosshair' : 'default',
           imageRendering: 'pixelated', // Keep it sharp

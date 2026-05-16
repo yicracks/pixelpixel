@@ -125,7 +125,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
     : 'bg-blue-500 border-blue-400 text-white shadow-lg shadow-blue-500/20';
 
   return (
-    <div className={`flex flex-col gap-6 p-5 backdrop-blur-xl border rounded-2xl shadow-xl w-full max-w-xs h-fit overflow-y-auto max-h-[90vh] transition-colors duration-300 ${containerClass}`}>
+    <div className={`flex flex-col gap-6 p-5 backdrop-blur-xl border rounded-2xl shadow-xl w-full max-w-[min(320px,88vw)] h-fit overflow-y-auto max-h-[90vh] transition-colors duration-300 ${containerClass}`}>
       
       {/* --- Size Selector --- */}
       <div>
