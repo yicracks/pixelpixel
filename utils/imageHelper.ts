@@ -27,19 +27,16 @@ export const processImageToGrid = (
         canvas.width = cols;
         canvas.height = rows;
 
-        // Clear canvas to ensure transparent background
+        // Clear canvas
         ctx.clearRect(0, 0, cols, rows);
 
-        // Calculate scale to fit within dimensions while maintaining aspect ratio
+        // Scale and Center
         const scale = Math.min(cols / img.width, rows / img.height);
         const w = img.width * scale;
         const h = img.height * scale;
-        
-        // Calculate centered position
         const x = (cols - w) / 2;
         const y = (rows - h) / 2;
 
-        // Draw image centered and scaled
         ctx.drawImage(img, x, y, w, h);
 
         // Extract pixel data

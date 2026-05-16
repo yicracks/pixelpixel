@@ -29,11 +29,12 @@ export const translations = {
     upload_image: "上传图片到网格",
     identify_colors: "识别主要色彩",
     dominant_colors_title: "色彩提取与量化",
-    dominant_colors_desc: "已识别出画面中主要的 10 种色彩。请选择您希望保留的颜色（至少一种），点击“应用”将全图颜色替换为所选基准色。",
+    dominant_colors_desc: "已识别出画面中的主要色彩。请选择您希望保留的颜色（至少一种），点击“应用”将全图颜色替换为所选基准色。",
     select_colors_instruction: "点击颜色进行选择/取消选择",
     apply_palette: "应用选中色彩",
     no_colors_found: "画布上没有检测到颜色。",
     save_image: "保存图片",
+    analyze_blueprint: "分析图纸",
     built_with: "基于 React & Tailwind 构建",
     error_processing: "处理图片时出错，请尝试其他文件。",
     confirm_clear_native: "清空整个画布？",
@@ -52,7 +53,8 @@ export const translations = {
     ai_modal_desc: "描述您想创建的内容，AI 将为您生成像素艺术。",
     ai_input_placeholder: "例如：一只在吃竹子的可爱熊猫...",
     generating: "生成中...",
-    generate: "生成"
+    generate: "生成",
+    dominant_count_label: "色彩提取数量",
   },
   en: {
     title: "pixel pixel",
@@ -81,11 +83,12 @@ export const translations = {
     upload_image: "Upload Image to Grid",
     identify_colors: "Identify Main Colors",
     dominant_colors_title: "Palette & Quantize",
-    dominant_colors_desc: "Identified the top 10 dominant colors. Select the colors you want to keep as a base palette. Clicking 'Apply' will map all pixels to the nearest selected color.",
+    dominant_colors_desc: "Identified the dominant colors in the image. Select the colors you want to keep as a base palette. Clicking 'Apply' will map all pixels to the nearest selected color.",
     select_colors_instruction: "Click to toggle selection",
     apply_palette: "Apply Palette",
     no_colors_found: "No colors found on the canvas.",
     save_image: "Save",
+    analyze_blueprint: "Analyze Blueprint",
     built_with: "Built with React & Tailwind",
     error_processing: "Error processing image. Please try a different file.",
     confirm_clear_native: "Clear the entire board?",
@@ -104,6 +107,7 @@ export const translations = {
     ai_modal_desc: "Describe what you want to create, and AI will generate pixel art for you.",
     ai_input_placeholder: "E.g., A cute panda eating bamboo...",
     generating: "Generating...",
-    generate: "Generate"
+    generate: "Generate",
+    dominant_count_label: "Dominant Color Count",
   }
 };

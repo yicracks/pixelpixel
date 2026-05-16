@@ -15,66 +15,129 @@ export const hexToRgb = (hex: string) => {
   } : null;
 };
 
-// Converts RGB to HSV
-// H: 0-360, S: 0-1, V: 0-1
-const rgbToHsv = (r: number, g: number, b: number) => {
-    r /= 255; g /= 255; b /= 255;
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    let h = 0, s = 0, v = max;
-    const d = max - min;
-    s = max === 0 ? 0 : d / max;
-    if (max !== min) {
-        switch (max) {
-            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-            case g: h = (b - r) / d + 2; break;
-            case b: h = (r - g) / d + 4; break;
-        }
-        h /= 6;
-    }
-    return { h: h * 360, s, v };
+interface RGB { r: number; g: number; b: number; }
+interface Lab { l: number; a: number; b: number; }
+
+// Converts RGB to Lab color space
+const rgbToLab = (r: number, g: number, b: number): Lab => {
+    // RGB to XYZ
+    let rL = r / 255;
+    let gL = g / 255;
+    let bL = b / 255;
+
+    rL = rL > 0.04045 ? Math.pow((rL + 0.055) / 1.055, 2.4) : rL / 12.92;
+    gL = gL > 0.04045 ? Math.pow((gL + 0.055) / 1.055, 2.4) : gL / 12.92;
+    bL = bL > 0.04045 ? Math.pow((bL + 0.055) / 1.055, 2.4) : bL / 12.92;
+
+    rL *= 100;
+    gL *= 100;
+    bL *= 100;
+
+    // Based on D65 illuminant
+    const x = rL * 0.4124 + gL * 0.3576 + bL * 0.1805;
+    const y = rL * 0.2126 + gL * 0.7152 + bL * 0.0722;
+    const z = rL * 0.0193 + gL * 0.1192 + bL * 0.9505;
+
+    // XYZ to Lab
+    const xN = 95.047;
+    const yN = 100.000;
+    const zN = 108.883;
+
+    let xR = x / xN;
+    let yR = y / yN;
+    let zR = z / zN;
+
+    const f = (t: number) => t > (216 / 24389) ? Math.pow(t, 1 / 3) : (841 / 108) * t + (4 / 29);
+
+    const l = 116 * f(yR) - 16;
+    const a = 500 * (f(xR) - f(yR));
+    const b_ = 200 * (f(yR) - f(zR));
+
+    return { l, a, b: b_ };
 };
 
 /**
- * Calculates the weighted distance between two colors based on the user-specified formula.
- * Formula: Similarity = 1 - (0.6*H_dist + 0.2*SV_dist + 0.2*RGB_dist)
- * We return the weighted Distance (the part in parentheses), so smaller is better.
+ * CIEDE2000 Color Difference formula implementation.
+ * Returns a value where 1.0 is a "Just Noticeable Difference" (JND).
+ * Smaller is more similar.
  */
-const calculateHybridDistance = (r1: number, g1: number, b1: number, r2: number, g2: number, b2: number): number => {
-    // 1. RGB Distance (Euclidean, Normalized to 0-1)
-    const dr = r1 - r2;
-    const dg = g1 - g2;
-    const db = b1 - b2;
-    // Max euclidean distance in RGB is sqrt(255^2 * 3) ≈ 441.67
-    const distRGB = Math.sqrt(dr*dr + dg*dg + db*db) / 441.67; 
+const deltaE2000 = (lab1: Lab, lab2: Lab): number => {
+    const { l: l1, a: a1, b: b1 } = lab1;
+    const { l: l2, a: a2, b: b2 } = lab2;
 
-    // 2. HSV Calculations
-    const hsv1 = rgbToHsv(r1, g1, b1);
-    const hsv2 = rgbToHsv(r2, g2, b2);
+    const kL = 1, kC = 1, kH = 1;
 
-    // 3. Hue Distance (Circular, Normalized to 0-1)
-    let dh = Math.abs(hsv1.h - hsv2.h);
-    if (dh > 180) dh = 360 - dh; // Shortest path around the circle
-    const distH = dh / 180;
+    const deltaLPrime = l2 - l1;
+    const lBar = (l1 + l2) / 2;
 
-    // 4. S/V Distance (Euclidean in SV plane, Normalized to 0-1)
-    // Max distance in unit square (0-1, 0-1) is sqrt(1^2 + 1^2) = sqrt(2) ≈ 1.414
-    const ds = hsv1.s - hsv2.s;
-    const dv = hsv1.v - hsv2.v;
-    const distSV = Math.sqrt(ds*ds + dv*dv) / 1.414;
+    const c1 = Math.sqrt(a1 * a1 + b1 * b1);
+    const c2 = Math.sqrt(a2 * a2 + b2 * b2);
 
-    // 5. Weighted Sum
-    // 0.6 * H distance + 0.2 * SV distance + 0.2 * RGB distance
-    return (0.6 * distH) + (0.2 * distSV) + (0.2 * distRGB);
+    const cBar = (c1 + c2) / 2;
+    const g = 0.5 * (1 - Math.sqrt(Math.pow(cBar, 7) / (Math.pow(cBar, 7) + Math.pow(25, 7))));
+
+    const a1Prime = a1 * (1 + g);
+    const a2Prime = a2 * (1 + g);
+
+    const c1Prime = Math.sqrt(a1Prime * a1Prime + b1 * b1);
+    const c2Prime = Math.sqrt(a2Prime * a2Prime + b2 * b2);
+
+    const cBarPrime = (c1Prime + c2Prime) / 2;
+    const deltaCPrime = c2Prime - c1Prime;
+
+    const h1Prime = (Math.atan2(b1, a1Prime) * 180 / Math.PI + 360) % 360;
+    const h2Prime = (Math.atan2(b2, a2Prime) * 180 / Math.PI + 360) % 360;
+
+    let deltaHPrime = h2Prime - h1Prime;
+    if (Math.abs(deltaHPrime) > 180) {
+        if (h2Prime <= h1Prime) deltaHPrime += 360;
+        else deltaHPrime -= 360;
+    }
+
+    const deltaLargeHPrime = 2 * Math.sqrt(c1Prime * c2Prime) * Math.sin(deltaHPrime * Math.PI / 360);
+
+    let hBarPrime = (h1Prime + h2Prime) / 2;
+    if (Math.abs(h1Prime - h2Prime) > 180) {
+        if (h1Prime + h2Prime < 360) hBarPrime += 180;
+        else hBarPrime -= 180;
+    }
+
+    const t = 1 - 0.17 * Math.cos((hBarPrime - 30) * Math.PI / 180) + 0.24 * Math.cos((2 * hBarPrime) * Math.PI / 180) +
+        0.32 * Math.cos((3 * hBarPrime + 6) * Math.PI / 180) - 0.20 * Math.cos((4 * hBarPrime - 63) * Math.PI / 180);
+
+    const deltaTheta = 30 * Math.exp(-Math.pow((hBarPrime - 275) / 25, 2));
+    const rC = 2 * Math.sqrt(Math.pow(cBarPrime, 7) / (Math.pow(cBarPrime, 7) + Math.pow(25, 7)));
+    const rT = -Math.sin(2 * deltaTheta * Math.PI / 180) * rC;
+
+    const sL = 1 + (0.015 * Math.pow(lBar - 50, 2)) / Math.sqrt(20 + Math.pow(lBar - 50, 2));
+    const sC = 1 + 0.045 * cBarPrime;
+    const sH = 1 + 0.015 * cBarPrime * t;
+
+    const deltaE = Math.sqrt(
+        Math.pow(deltaLPrime / (kL * sL), 2) +
+        Math.pow(deltaCPrime / (kC * sC), 2) +
+        Math.pow(deltaLargeHPrime / (kH * sH), 2) +
+        rT * (deltaCPrime / (kC * sC)) * (deltaLargeHPrime / (kH * sH))
+    );
+
+    return deltaE;
 };
 
-interface RGB { r: number; g: number; b: number; }
+/**
+ * Calculates color distance using CIEDE2000.
+ */
+const calculateDistance = (r1: number, g1: number, b1: number, r2: number, g2: number, b2: number): number => {
+    const lab1 = rgbToLab(r1, g1, b1);
+    const lab2 = rgbToLab(r2, g2, b2);
+    return deltaE2000(lab1, lab2);
+};
 
 // Reference point structure derived from CSV
 interface ColorReference {
   r: number;
   g: number;
   b: number;
+  lab: Lab;
   labelId: string;
 }
 
@@ -96,7 +159,7 @@ const parseReferencePoints = (csv: string): ColorReference[] => {
     const labelId = parts[5].trim();
     
     if (!isNaN(r)) {
-        refs.push({ r, g, b, labelId });
+        refs.push({ r, g, b, lab: rgbToLab(r, g, b), labelId });
     }
   }
   return refs;
@@ -130,12 +193,12 @@ export const reduceGridToAverageColors = (grid: string[][]): string[][] => {
         const rgb = hexToRgb(color);
         if (!rgb) continue;
 
-        const { r: R, g: G, b: B } = rgb;
+        const lab = rgbToLab(rgb.r, rgb.g, rgb.b);
         let minDist = Infinity;
         bestLabel = 'unknown';
 
         for (const ref of REFERENCE_POINTS) {
-          const dist = calculateHybridDistance(R, G, B, ref.r, ref.g, ref.b);
+          const dist = deltaE2000(lab, ref.lab);
           if (dist < minDist) {
             minDist = dist;
             bestLabel = ref.labelId;
@@ -197,10 +260,11 @@ export const getDominantColors = (grid: string[][], k: number = 5): string[] => 
   const uniqueColors = Array.from(colorCounts.keys());
   if (uniqueColors.length === 0) return [];
   
-  const pixels: (RGB & { count: number })[] = uniqueColors.map(hex => {
+  const pixels: (RGB & { count: number, lab: Lab })[] = uniqueColors.map(hex => {
       const rgb = hexToRgb(hex);
-      return rgb ? { ...rgb, count: colorCounts.get(hex)! } : null;
-  }).filter(p => p !== null) as (RGB & { count: number })[];
+      if (!rgb) return null;
+      return { ...rgb, count: colorCounts.get(hex)!, lab: rgbToLab(rgb.r, rgb.g, rgb.b) };
+  }).filter(p => p !== null) as (RGB & { count: number, lab: Lab })[];
 
   if (pixels.length === 0) return [];
 
@@ -209,21 +273,21 @@ export const getDominantColors = (grid: string[][], k: number = 5): string[] => 
   }
 
   // 2. Initialize Centroids
-  let centroids: RGB[] = [];
+  let centroids: (RGB & { lab: Lab })[] = [];
   const sortedByCount = [...pixels].sort((a, b) => b.count - a.count);
-  centroids = sortedByCount.slice(0, k).map(p => ({ r: p.r, g: p.g, b: p.b }));
+  centroids = sortedByCount.slice(0, k).map(p => ({ r: p.r, g: p.g, b: p.b, lab: p.lab }));
 
   // 3. K-Means Loop
   const maxIterations = 10;
   for (let iter = 0; iter < maxIterations; iter++) {
-      const clusters: (RGB & { count: number })[][] = Array.from({ length: k }, () => []);
+      const clusters: (RGB & { count: number, lab: Lab })[][] = Array.from({ length: k }, () => []);
 
       pixels.forEach(p => {
           let minDist = Infinity;
           let clusterIndex = 0;
           
           centroids.forEach((c, idx) => {
-              const dist = calculateHybridDistance(p.r, p.g, p.b, c.r, c.g, c.b);
+              const dist = deltaE2000(p.lab, c.lab);
               if (dist < minDist) {
                   minDist = dist;
                   clusterIndex = idx;
@@ -256,7 +320,12 @@ export const getDominantColors = (grid: string[][], k: number = 5): string[] => 
               converged = false;
           }
 
-          centroids[idx] = { r: newR, g: newG, b: newB };
+          centroids[idx] = { 
+            r: newR, 
+            g: newG, 
+            b: newB, 
+            lab: rgbToLab(newR, newG, newB) 
+          };
       });
 
       if (converged) break;
@@ -272,12 +341,12 @@ export const getDominantColors = (grid: string[][], k: number = 5): string[] => 
 export const applyPaletteToGrid = (grid: string[][], palette: string[]): string[][] => {
   if (!palette || palette.length === 0) return grid;
 
-  const paletteRgb = palette.map(hex => {
+  const paletteInfos = palette.map(hex => {
       const rgb = hexToRgb(hex);
-      return rgb ? { ...rgb, hex } : null;
-  }).filter(item => item !== null) as {r: number, g: number, b: number, hex: string}[];
+      return rgb ? { ...rgb, hex, lab: rgbToLab(rgb.r, rgb.g, rgb.b) } : null;
+  }).filter(item => item !== null) as {r: number, g: number, b: number, hex: string, lab: Lab}[];
 
-  if (paletteRgb.length === 0) return grid;
+  if (paletteInfos.length === 0) return grid;
 
   const cache = new Map<string, string>(); // originalHex -> nearestPaletteHex
   const newGrid = grid.map(row => {
@@ -290,11 +359,12 @@ export const applyPaletteToGrid = (grid: string[][], palette: string[]): string[
         const currentRgb = hexToRgb(color);
         if (!currentRgb) return color;
 
+        const currentLab = rgbToLab(currentRgb.r, currentRgb.g, currentRgb.b);
         let minDist = Infinity;
         nearestHex = color;
 
-        for (const p of paletteRgb) {
-          const dist = calculateHybridDistance(currentRgb.r, currentRgb.g, currentRgb.b, p.r, p.g, p.b);
+        for (const p of paletteInfos) {
+          const dist = deltaE2000(currentLab, p.lab);
           if (dist < minDist) {
             minDist = dist;
             nearestHex = p.hex;

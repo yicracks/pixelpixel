@@ -1,18 +1,14 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Pencil, 
   Eraser, 
   Pipette, 
-  Trash2, 
-  Download, 
   Grid3X3, 
-  Image as ImageIcon,
   Square,
   Circle,
   Clock,
   ChevronDown,
-  ChevronUp,
-  Palette
+  ChevronUp
 } from 'lucide-react';
 import { ToolType, APP_CONFIG, BoardStyle, Language, Theme } from '../types';
 import { translations } from '../utils/translations';
@@ -24,10 +20,6 @@ interface ToolbarProps {
   setActiveColor: (c: string) => void;
   gridSize: number;
   setGridSize: (s: number) => void;
-  onClear: () => void;
-  onDownload: () => void;
-  onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onIdentifyColors: () => void;
   showGridLines: boolean;
   setShowGridLines: (v: boolean) => void;
   boardStyle: BoardStyle;
@@ -42,20 +34,13 @@ const Toolbar: React.FC<ToolbarProps> = ({
   tool, setTool,
   activeColor, setActiveColor,
   gridSize, setGridSize,
-  onClear,
-  onDownload,
-  onUpload,
-  onIdentifyColors,
   showGridLines, setShowGridLines,
   boardStyle, setBoardStyle,
   beadSize, setBeadSize,
   lang,
   theme
 }) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const isDark = theme === 'dark';
-  
-  // Local state for the custom input to allow typing
   const [customSize, setCustomSize] = useState<string>(gridSize.toString());
   
   // Recent Colors State
@@ -117,10 +102,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
     '#3b5dc9', '#41a6f6', '#73eff7', '#f4f4f4', '#94b0c2',
     '#566c86', '#333c57'
   ];
-
-  const handleFileClick = () => {
-    fileInputRef.current?.click();
-  };
 
   // Styles based on theme
   const containerClass = isDark 
@@ -324,54 +305,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
             )}
           </div>
       )}
-
-      {/* --- Actions --- */}
-      <div className={`space-y-3 pt-4 border-t ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
-        
-        <input 
-          type="file" 
-          ref={fileInputRef}
-          onChange={onUpload}
-          accept="image/*"
-          className="hidden" 
-        />
-        
-        {/* Row 1: Upload + Identify */}
-        <div className="grid grid-cols-2 gap-2">
-            <ActionButton 
-                onClick={handleFileClick} 
-                icon={<ImageIcon size={18} />} 
-                label={t.upload_image} 
-                variant="secondary"
-                theme={theme}
-            />
-            <ActionButton 
-                onClick={onIdentifyColors} 
-                icon={<Palette size={18} />} 
-                label={t.identify_colors} 
-                variant="secondary"
-                theme={theme}
-            />
-        </div>
-
-        {/* Row 2: Clear + Save */}
-        <div className="grid grid-cols-2 gap-2">
-            <ActionButton 
-                onClick={onClear} 
-                icon={<Trash2 size={18} />} 
-                label={t.clear} 
-                variant="danger"
-                theme={theme}
-            />
-            <ActionButton 
-                onClick={onDownload} 
-                icon={<Download size={18} />} 
-                label={t.save_image} 
-                variant="primary"
-                theme={theme}
-            />
-        </div>
-      </div>
     </div>
   );
 };
@@ -393,36 +326,6 @@ const ToolButton = ({ active, onClick, icon, label, theme }: any) => {
       `}
     >
       {icon}
-    </button>
-  );
-};
-
-const ActionButton = ({ onClick, icon, label, variant = 'primary', theme }: any) => {
-  const isDark = theme === 'dark';
-  
-  const styles = {
-    primary: isDark 
-        ? 'bg-slate-700 hover:bg-slate-600 text-white border-slate-600'
-        : 'bg-slate-800 hover:bg-slate-700 text-white border-slate-800',
-    secondary: isDark
-        ? 'bg-slate-700/50 hover:bg-slate-700 text-slate-300 border-dashed border-slate-500'
-        : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-dashed border-slate-300',
-    danger: isDark
-        ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border-red-500/30'
-        : 'bg-red-50 hover:bg-red-100 text-red-600 border-red-200',
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`
-        flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg text-sm font-medium border transition-all
-        ${styles[variant as keyof typeof styles]}
-      `}
-    >
-      {icon}
-      {label}
     </button>
   );
 };
