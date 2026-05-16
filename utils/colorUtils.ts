@@ -108,7 +108,7 @@ const REFERENCE_POINTS = parseReferencePoints(COLOR_CSV_DATA);
 /**
  * Reduces the grid colors by matching each pixel to the nearest neighbor
  * found in the provided CSV dataset (categorization).
- * Uses the Hybrid HSV+RGB distance metric.
+ * Uses a cache to avoid redundant distance calculations for the same color.
  */
 export const reduceGridToAverageColors = (grid: string[][]): string[][] => {
   const newGrid = grid.map(row => [...row]);
@@ -117,35 +117,40 @@ export const reduceGridToAverageColors = (grid: string[][]): string[][] => {
   const cols = newGrid[0].length;
 
   const groups: Record<string, { r: number, g: number, b: number, row: number, col: number }[]> = {};
+  const cache = new Map<string, string>(); // color -> bestLabel
 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const color = newGrid[r][c];
       if (color === 'transparent') continue;
 
+      let bestLabel = cache.get(color);
+      
+      if (!bestLabel) {
+        const rgb = hexToRgb(color);
+        if (!rgb) continue;
+
+        const { r: R, g: G, b: B } = rgb;
+        let minDist = Infinity;
+        bestLabel = 'unknown';
+
+        for (const ref of REFERENCE_POINTS) {
+          const dist = calculateHybridDistance(R, G, B, ref.r, ref.g, ref.b);
+          if (dist < minDist) {
+            minDist = dist;
+            bestLabel = ref.labelId;
+          }
+        }
+        cache.set(color, bestLabel);
+      }
+      
       const rgb = hexToRgb(color);
       if (!rgb) continue;
-
-      const { r: R, g: G, b: B } = rgb;
-      
-      let minDist = Infinity;
-      let bestLabel = 'unknown';
-
-      // Find nearest neighbor in CSV reference points
-      for (const ref of REFERENCE_POINTS) {
-        // Use Hybrid Distance
-        const dist = calculateHybridDistance(R, G, B, ref.r, ref.g, ref.b);
-        
-        if (dist < minDist) {
-          minDist = dist;
-          bestLabel = ref.labelId;
-        }
-      }
       
       if (!groups[bestLabel]) {
         groups[bestLabel] = [];
       }
-      groups[bestLabel].push({ r: R, g: G, b: B, row: r, col: c });
+      groups[bestLabel].push({ r: rgb.r, g: rgb.g, b: rgb.b, row: r, col: c });
     }
   }
 
@@ -176,47 +181,43 @@ export const reduceGridToAverageColors = (grid: string[][]): string[][] => {
 
 /**
  * Identifies the top K dominant average colors using K-Means clustering.
- * Uses Hybrid HSV+RGB distance metric for assignment.
+ * Optimized by downsampling to unique colors or subset of pixels if needed.
  */
 export const getDominantColors = (grid: string[][], k: number = 5): string[] => {
-  // 1. Flatten grid and extract all valid RGB values
-  const pixels: RGB[] = [];
+  // 1. Extract all valid RGB values, using a Map to count occurrences of unique colors
+  const colorCounts = new Map<string, number>();
   grid.forEach(row => {
     row.forEach(color => {
       if (color !== 'transparent') {
-        const rgb = hexToRgb(color);
-        if (rgb) pixels.push(rgb);
+        colorCounts.set(color, (colorCounts.get(color) || 0) + 1);
       }
     });
   });
 
-  const totalPixels = pixels.length;
-  if (totalPixels === 0) return [];
+  const uniqueColors = Array.from(colorCounts.keys());
+  if (uniqueColors.length === 0) return [];
+  
+  const pixels: (RGB & { count: number })[] = uniqueColors.map(hex => {
+      const rgb = hexToRgb(hex);
+      return rgb ? { ...rgb, count: colorCounts.get(hex)! } : null;
+  }).filter(p => p !== null) as (RGB & { count: number })[];
 
-  if (totalPixels <= k) {
-      const unique = Array.from(new Set(pixels.map(p => rgbToHex(p.r, p.g, p.b))));
-      return unique;
+  if (pixels.length === 0) return [];
+
+  if (pixels.length <= k) {
+      return pixels.map(p => rgbToHex(p.r, p.g, p.b));
   }
 
-  // 2. Initialize Centroids (Pick random pixels to start)
+  // 2. Initialize Centroids
   let centroids: RGB[] = [];
-  const usedIndices = new Set<number>();
-  while (centroids.length < k && centroids.length < totalPixels) {
-      const idx = Math.floor(Math.random() * totalPixels);
-      if (!usedIndices.has(idx)) {
-          centroids.push({ ...pixels[idx] });
-          usedIndices.add(idx);
-      }
-  }
+  const sortedByCount = [...pixels].sort((a, b) => b.count - a.count);
+  centroids = sortedByCount.slice(0, k).map(p => ({ r: p.r, g: p.g, b: p.b }));
 
   // 3. K-Means Loop
-  const maxIterations = 15;
-  let clusters: RGB[][] = Array.from({ length: k }, () => []);
-
+  const maxIterations = 10;
   for (let iter = 0; iter < maxIterations; iter++) {
-      clusters = Array.from({ length: k }, () => []);
+      const clusters: (RGB & { count: number })[][] = Array.from({ length: k }, () => []);
 
-      // Assign pixels to nearest centroid using Hybrid Distance
       pixels.forEach(p => {
           let minDist = Infinity;
           let clusterIndex = 0;
@@ -231,20 +232,27 @@ export const getDominantColors = (grid: string[][], k: number = 5): string[] => 
           clusters[clusterIndex].push(p);
       });
 
-      // Recalculate centroids (Arithmetic Mean in RGB space is still a robust estimator)
       let converged = true;
       clusters.forEach((cluster, idx) => {
           if (cluster.length === 0) return;
 
-          const sum = cluster.reduce((acc, p) => ({ r: acc.r + p.r, g: acc.g + p.g, b: acc.b + p.b }), { r: 0, g: 0, b: 0 });
-          const newR = sum.r / cluster.length;
-          const newG = sum.g / cluster.length;
-          const newB = sum.b / cluster.length;
+          let totalWeight = 0;
+          const sum = cluster.reduce((acc, p) => {
+              totalWeight += p.count;
+              return { 
+                r: acc.r + (p.r * p.count), 
+                g: acc.g + (p.g * p.count), 
+                b: acc.b + (p.b * p.count) 
+              };
+          }, { r: 0, g: 0, b: 0 });
 
-          // Convergence check
-          if (Math.abs(newR - centroids[idx].r) > 1 || 
-              Math.abs(newG - centroids[idx].g) > 1 || 
-              Math.abs(newB - centroids[idx].b) > 1) {
+          const newR = sum.r / totalWeight;
+          const newG = sum.g / totalWeight;
+          const newB = sum.b / totalWeight;
+
+          if (Math.abs(newR - centroids[idx].r) > 0.5 || 
+              Math.abs(newG - centroids[idx].g) > 0.5 || 
+              Math.abs(newB - centroids[idx].b) > 0.5) {
               converged = false;
           }
 
@@ -254,29 +262,12 @@ export const getDominantColors = (grid: string[][], k: number = 5): string[] => 
       if (converged) break;
   }
 
-  // 4. Sort clusters by size
-  const sortedClusters = clusters
-      .filter(c => c.length > 0)
-      .sort((a, b) => b.length - a.length);
-
-  // 5. Filter thresholds: > 0.5% total and > 5 pixels
-  const threshold = Math.ceil(totalPixels * 0.005);
-  const significantClusters = sortedClusters.filter(c => c.length >= threshold && c.length > 5);
-
-  const dominantHexColors = significantClusters.slice(0, k).map(cluster => {
-      const sum = cluster.reduce((acc, p) => ({ r: acc.r + p.r, g: acc.g + p.g, b: acc.b + p.b }), { r: 0, g: 0, b: 0 });
-      const avgR = Math.round(sum.r / cluster.length);
-      const avgG = Math.round(sum.g / cluster.length);
-      const avgB = Math.round(sum.b / cluster.length);
-      return rgbToHex(avgR, avgG, avgB);
-  });
-
-  return dominantHexColors;
+  return centroids.map(c => rgbToHex(Math.round(c.r), Math.round(c.g), Math.round(c.b)));
 };
 
 /**
  * Replaces every pixel in the grid with the nearest color from the provided palette.
- * Uses Hybrid HSV+RGB distance metric.
+ * Optimized with caching.
  */
 export const applyPaletteToGrid = (grid: string[][], palette: string[]): string[][] => {
   if (!palette || palette.length === 0) return grid;
@@ -288,36 +279,32 @@ export const applyPaletteToGrid = (grid: string[][], palette: string[]): string[
 
   if (paletteRgb.length === 0) return grid;
 
-  const newGrid = grid.map(row => [...row]);
-  const rows = newGrid.length;
-  if (rows === 0) return newGrid;
-  const cols = newGrid[0].length;
+  const cache = new Map<string, string>(); // originalHex -> nearestPaletteHex
+  const newGrid = grid.map(row => {
+    return row.map(color => {
+      if (color === 'transparent') return color;
+      if (palette.includes(color)) return color;
 
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const color = newGrid[r][c];
-      if (color === 'transparent') continue;
+      let nearestHex = cache.get(color);
+      if (!nearestHex) {
+        const currentRgb = hexToRgb(color);
+        if (!currentRgb) return color;
 
-      if (palette.includes(color)) continue;
+        let minDist = Infinity;
+        nearestHex = color;
 
-      const currentRgb = hexToRgb(color);
-      if (!currentRgb) continue;
-
-      let minDist = Infinity;
-      let nearestHex = color;
-
-      for (const p of paletteRgb) {
-        // Use Hybrid Distance
-        const dist = calculateHybridDistance(currentRgb.r, currentRgb.g, currentRgb.b, p.r, p.g, p.b);
-        
-        if (dist < minDist) {
-          minDist = dist;
-          nearestHex = p.hex;
+        for (const p of paletteRgb) {
+          const dist = calculateHybridDistance(currentRgb.r, currentRgb.g, currentRgb.b, p.r, p.g, p.b);
+          if (dist < minDist) {
+            minDist = dist;
+            nearestHex = p.hex;
+          }
         }
+        cache.set(color, nearestHex);
       }
-      newGrid[r][c] = nearestHex;
-    }
-  }
+      return nearestHex;
+    });
+  });
 
   return newGrid;
 };

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { GridData, ToolType, EMPTY_COLOR, BoardStyle, Language, Theme } from '../types';
 import { translations } from '../utils/translations';
 
@@ -29,25 +29,133 @@ const Grid: React.FC<GridProps> = ({
   lang,
   theme
 }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
+  const lastPos = useRef<{r: number, c: number} | null>(null);
+  const gridRef = useRef<GridData>(grid);
+  
+  // Sync gridRef when grid prop changes from outside (e.g. undo/redo)
+  useEffect(() => {
+    if (!isDrawing.current) {
+        gridRef.current = grid;
+    }
+  }, [grid]);
+
   const t = translations[lang];
   const isDark = theme === 'dark';
 
-  // Safety check: Ensure grid is populated before rendering
-  if (!grid || grid.length === 0 || !grid[0]) {
-    return (
-        <div className={`flex items-center justify-center w-64 h-64 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-            {t.loading}
-        </div>
-    );
-  }
+  // Draw the grid to the canvas
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !gridRef.current || gridRef.current.length === 0) return;
 
-  // Helper to paint a specific cell
-  const paintCell = (rowIndex: number, colIndex: number) => {
-    if (rowIndex < 0 || rowIndex >= grid.length || colIndex < 0 || colIndex >= grid[0].length) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const currentGrid = gridRef.current;
+    const rows = currentGrid.length;
+    const cols = currentGrid[0].length;
     
-    // Optimization: Don't update state if color is identical
-    const currentColor = grid[rowIndex][colIndex];
+    const cellSize = 10; 
+    canvas.width = cols * cellSize;
+    canvas.height = rows * cellSize;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const isBead = boardStyle === BoardStyle.BEAD;
+    const bgPatternColor = isDark ? '#1e293b' : '#e2e8f0';
+    const emptyPegColor = isDark ? '#334155' : '#e2e8f0';
+    const gridLineColor = isDark ? 'rgba(51, 65, 85, 0.5)' : 'rgba(226, 232, 240, 0.8)';
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const color = currentGrid[r][c];
+        const isTransparent = color === 'transparent' || color === EMPTY_COLOR;
+        const x = c * cellSize;
+        const y = r * cellSize;
+
+        if (isBead) {
+           if (isTransparent) {
+              const pegSize = cellSize * 0.2;
+              ctx.fillStyle = emptyPegColor;
+              ctx.beginPath();
+              ctx.arc(x + cellSize/2, y + cellSize/2, pegSize/2, 0, Math.PI * 2);
+              ctx.fill();
+           } else {
+              const actualBeadSize = (cellSize * (beadSize / 100));
+              ctx.fillStyle = color;
+              ctx.beginPath();
+              ctx.arc(x + cellSize/2, y + cellSize/2, actualBeadSize/2, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+              ctx.lineWidth = 0.5;
+              ctx.stroke();
+           }
+        } else {
+          if (isTransparent) {
+            ctx.fillStyle = (r + c) % 2 === 0 ? bgPatternColor : (isDark ? '#0f172a' : '#ffffff');
+            ctx.fillRect(x, y, cellSize, cellSize);
+          } else {
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, cellSize, cellSize);
+          }
+        }
+      }
+    }
+
+    if (showGridLines && !isBead) {
+      ctx.strokeStyle = gridLineColor;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      for (let i = 0; i <= cols; i++) {
+        ctx.moveTo(i * cellSize, 0);
+        ctx.lineTo(i * cellSize, canvas.height);
+      }
+      for (let j = 0; j <= rows; j++) {
+        ctx.moveTo(0, j * cellSize);
+        ctx.lineTo(cols * cellSize, j * cellSize);
+      }
+      ctx.stroke();
+    }
+  }, [boardStyle, beadSize, isDark, showGridLines]);
+
+  useEffect(() => {
+    draw();
+  }, [draw, grid]); // Redraw when grid state changes (undo/redo etc)
+
+  const getGridPos = (e: React.MouseEvent | React.TouchEvent | MouseEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+
+    const rect = canvas.getBoundingClientRect();
+    let clientX, clientY;
+
+    if ('touches' in e) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = (e as MouseEvent).clientX;
+      clientY = (e as MouseEvent).clientY;
+    }
+
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    const rectWidth = rect.width;
+    const rectHeight = rect.height;
+
+    const col = Math.floor((x / rectWidth) * grid[0].length);
+    const row = Math.floor((y / rectHeight) * grid.length);
+
+    if (row >= 0 && row < grid.length && col >= 0 && col < grid[0].length) {
+      return { r: row, c: col };
+    }
+    return null;
+  };
+
+  const paintCell = (rowIndex: number, colIndex: number) => {
+    const currentGrid = gridRef.current;
+    const currentColor = currentGrid[rowIndex][colIndex];
     let targetColor = activeColor;
     
     if (tool === ToolType.ERASER) {
@@ -56,117 +164,90 @@ const Grid: React.FC<GridProps> = ({
         if (currentColor !== EMPTY_COLOR) {
             setActiveColor(currentColor);
         }
-        return; // Don't paint
+        return;
     }
 
     if (currentColor === targetColor) return;
 
-    setGrid(prev => {
-      const newGrid = [...prev]; // Shallow copy outer
-      newGrid[rowIndex] = [...prev[rowIndex]]; // Copy row
-      newGrid[rowIndex][colIndex] = targetColor;
-      return newGrid;
-    });
+    // Update internal ref immediately for performance
+    currentGrid[rowIndex][colIndex] = targetColor;
+    
+    // Request a frame to redraw canvas
+    requestAnimationFrame(draw);
   };
 
-  const handleMouseDown = (r: number, c: number) => {
-    isDrawing.current = true;
-    paintCell(r, c);
-  };
-
-  const handleMouseEnter = (r: number, c: number) => {
-    if (isDrawing.current) {
-      paintCell(r, c);
+  const handleMouseDown = (e: React.MouseEvent) => {
+    const pos = getGridPos(e);
+    if (pos) {
+      isDrawing.current = true;
+      lastPos.current = pos;
+      paintCell(pos.r, pos.c);
     }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseMove = (e: React.MouseEvent | MouseEvent) => {
+    if (!isDrawing.current) return;
+    const pos = getGridPos(e);
+    if (pos) {
+      if (!lastPos.current || lastPos.current.r !== pos.r || lastPos.current.c !== pos.c) {
+        lastPos.current = pos;
+        paintCell(pos.r, pos.c);
+      }
+    }
+  };
+
+  const handleMouseUp = useCallback(() => {
     if (isDrawing.current) {
       isDrawing.current = false;
+      lastPos.current = null;
+      // Now sync internal grid back to React state and history
+      const finalGrid = gridRef.current.map(row => [...row]);
+      setGrid(finalGrid);
       if (onStrokeEnd) onStrokeEnd();
     }
-  };
+  }, [onStrokeEnd, setGrid]);
 
-  // Global mouse up to catch drags that go outside
   useEffect(() => {
-    const handleGlobalMouseUp = () => { 
-        if (isDrawing.current) {
-            isDrawing.current = false; 
-            if (onStrokeEnd) onStrokeEnd();
-        }
-    };
-    window.addEventListener('mouseup', handleGlobalMouseUp);
-    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
-  }, [onStrokeEnd]);
+    const handleGlobalMouseMove = (e: MouseEvent) => handleMouseMove(e);
+    const handleGlobalMouseUp = () => handleMouseUp();
 
-  const isBead = boardStyle === BoardStyle.BEAD;
-  
-  // Dynamic Styles
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [handleMouseUp]); 
+
+  // Safety check
+  if (!grid || grid.length === 0 || !grid[0]) {
+    return (
+        <div className={`flex items-center justify-center w-64 h-64 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+            {t.loading}
+        </div>
+    );
+  }
+
   const containerClass = isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 shadow-slate-200';
-  const gridLineClass = isDark ? 'border-slate-700/50' : 'border-slate-200';
-  const emptyPegClass = isDark ? 'bg-slate-700 shadow-inner' : 'bg-slate-200 shadow-inner';
-  const bgPatternColor = isDark ? '#1e293b' : '#e2e8f0';
 
   return (
     <div 
       className={`select-none inline-block shadow-2xl p-1 rounded-sm border transition-colors duration-300 ${containerClass}`}
-      onMouseLeave={handleMouseUp}
-      style={{
-        display: 'grid',
-        gridTemplateColumns: `repeat(${grid[0].length}, 1fr)`,
-        gap: '0px', 
-        // Force a max size to keep it within view
-        maxWidth: '100%',
-        maxHeight: '80vh',
-        aspectRatio: '1 / 1',
-        width: 'min(600px, 90vw)', 
-      }}
     >
-      {grid.map((row, rIndex) => (
-        row.map((color, cIndex) => {
-          const isTransparent = color === 'transparent' || color === EMPTY_COLOR;
-          
-          return (
-            <div
-              key={`${rIndex}-${cIndex}`}
-              onMouseDown={() => handleMouseDown(rIndex, cIndex)}
-              onMouseEnter={() => handleMouseEnter(rIndex, cIndex)}
-              className={`
-                w-full h-full cursor-crosshair flex items-center justify-center
-                ${showGridLines && !isBead ? `border-[0.5px] ${gridLineClass}` : ''}
-              `}
-            >
-                <div 
-                   className={`
-                      transition-all duration-200
-                      ${isBead 
-                          ? isTransparent 
-                              ? `w-[20%] h-[20%] rounded-full ${emptyPegClass}` // Peg for empty bead
-                              : 'rounded-full shadow-md ring-1 ring-black/10' // Filled Bead
-                          : 'w-full h-full' // Square
-                      }
-                   `}
-                   style={{ 
-                      // Size logic: If Square, 100%. If Bead, use dynamic size unless it's an empty peg
-                      width: isBead ? (isTransparent ? undefined : `${beadSize}%`) : undefined,
-                      height: isBead ? (isTransparent ? undefined : `${beadSize}%`) : undefined,
-
-                      backgroundColor: isBead && isTransparent ? undefined : (color === 'transparent' ? undefined : color),
-                      backgroundImage: (!isBead && isTransparent)
-                        ? `linear-gradient(45deg, ${bgPatternColor} 25%, transparent 25%), linear-gradient(-45deg, ${bgPatternColor} 25%, transparent 25%), linear-gradient(45deg, transparent 75%, ${bgPatternColor} 75%), linear-gradient(-45deg, transparent 75%, ${bgPatternColor} 75%)` 
-                        : 'none',
-                      backgroundSize: !isBead ? '10px 10px' : undefined,
-                      backgroundPosition: !isBead ? '0 0, 0 5px, 5px -5px, -5px 0px' : undefined,
-                      // Add nice 3D lighting effect for colored beads
-                      boxShadow: (isBead && !isTransparent) 
-                        ? 'inset -2px -2px 4px rgba(0,0,0,0.3), inset 2px 2px 4px rgba(255,255,255,0.25), 1px 1px 2px rgba(0,0,0,0.5)' 
-                        : undefined
-                   }}
-                />
-            </div>
-          );
-        })
-      ))}
+      <canvas
+        ref={canvasRef}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        style={{
+          display: 'block',
+          width: 'min(600px, 90vw)', 
+          aspectRatio: `${grid[0].length} / ${grid.length}`,
+          cursor: tool === ToolType.EYEDROPPER ? 'crosshair' : 'default',
+          imageRendering: 'pixelated', // Keep it sharp
+        }}
+      />
     </div>
   );
 };

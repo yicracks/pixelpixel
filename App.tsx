@@ -59,20 +59,28 @@ const App: React.FC = () => {
   const addToHistory = useCallback((newGridState: GridData) => {
     setHistory(prev => {
       const newHistory = prev.slice(0, historyIndex + 1);
-      // Deep copy to ensure history immutability
-      const copy = JSON.parse(JSON.stringify(newGridState));
+      // More efficient copy: shallow copy of rows
+      const copy = newGridState.map(row => [...row]);
       newHistory.push(copy);
+      
+      // Limit history size to 50 steps to prevent memory issues
+      if (newHistory.length > 50) {
+        newHistory.shift();
+      }
       return newHistory;
     });
-    setHistoryIndex(prev => prev + 1);
+    setHistoryIndex(prev => Math.min(prev + 1, 49));
   }, [historyIndex]);
 
   // Handle Undo
   const handleUndo = () => {
     if (historyIndex > 0) {
       const newIndex = historyIndex - 1;
-      setHistoryIndex(newIndex);
-      setGrid(JSON.parse(JSON.stringify(history[newIndex])));
+      const historyState = history[newIndex];
+      if (historyState) {
+          setHistoryIndex(newIndex);
+          setGrid(historyState.map(row => [...row]));
+      }
     }
   };
 
@@ -80,8 +88,11 @@ const App: React.FC = () => {
   const handleRedo = () => {
     if (historyIndex < history.length - 1) {
       const newIndex = historyIndex + 1;
-      setHistoryIndex(newIndex);
-      setGrid(JSON.parse(JSON.stringify(history[newIndex])));
+      const historyState = history[newIndex];
+      if (historyState) {
+          setHistoryIndex(newIndex);
+          setGrid(historyState.map(row => [...row]));
+      }
     }
   };
 
