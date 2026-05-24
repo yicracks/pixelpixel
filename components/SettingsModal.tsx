@@ -9,13 +9,10 @@ interface SettingsModalProps {
   theme: Theme;
   setTheme: (t: Theme) => void;
   lang: Language;
-  dominantCount: number;
-  setDominantCount: (n: number) => void;
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ 
-  isOpen, onClose, theme, setTheme, lang,
-  dominantCount, setDominantCount
+  isOpen, onClose, theme, setTheme, lang
 }) => {
   const t = translations[lang];
   const isDark = theme === 'dark';
@@ -82,33 +79,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </section>
 
-          {/* New Settings Section */}
-          <section className="space-y-6">
-             {/* Dominant Count Slider */}
-             <div>
-                <div className="flex justify-between items-center mb-3">
-                  <label className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                    {t.dominant_count_label}
-                  </label>
-                  <span className={`text-sm font-mono font-bold ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
-                    {dominantCount}
-                  </span>
-                </div>
-                <input 
-                  type="range"
-                  min="6"
-                  max="30"
-                  step="1"
-                  value={dominantCount}
-                  onChange={(e) => setDominantCount(parseInt(e.target.value))}
-                  className={`w-full h-2 rounded-lg appearance-none cursor-pointer accent-blue-500 ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}
-                />
-                <div className="flex justify-between mt-2 text-[10px] font-medium text-slate-500">
-                  <span>6</span>
-                  <span>30</span>
-                </div>
-             </div>
-          </section>
+
 
           {/* About Us Section */}
           <div className={`pt-6 border-t ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>

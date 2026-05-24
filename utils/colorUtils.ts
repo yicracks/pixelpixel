@@ -56,6 +56,47 @@ const rgbToLab = (r: number, g: number, b: number): Lab => {
     return { l, a, b: b_ };
 };
 
+// Converts Lab color space back to RGB
+const labToRgb = (l: number, a: number, b: number): RGB => {
+    let y = (l + 16) / 116;
+    let x = a / 500 + y;
+    let z = y - b / 200;
+
+    const finv = (t: number): number => {
+        return t > 6 / 29 ? t * t * t : (t - 16 / 116) * (108 / 841);
+    };
+
+    const xR = finv(x);
+    const yR = finv(y);
+    const zR = finv(z);
+
+    // D65 reference points:
+    const X = xR * 95.047;
+    const Y = yR * 100.000;
+    const Z = zR * 108.883;
+
+    // XYZ to RGB (sRGB, D65)
+    const xL = X / 100;
+    const yL = Y / 100;
+    const zL = Z / 100;
+
+    let rL = xL * 3.2406 + yL * -1.5372 + zL * -0.4986;
+    let gL = xL * -0.9689 + yL * 1.8758 + zL * 0.0415;
+    let bL = xL * 0.0557 + yL * -0.2040 + zL * 1.0570;
+
+    // Gamma correction
+    rL = rL > 0.0031308 ? 1.055 * Math.pow(rL, 1 / 2.4) - 0.055 : 12.92 * rL;
+    gL = gL > 0.0031308 ? 1.055 * Math.pow(gL, 1 / 2.4) - 0.055 : 12.92 * gL;
+    bL = bL > 0.0031308 ? 1.055 * Math.pow(bL, 1 / 2.4) - 0.055 : 12.92 * bL;
+
+    // Clamp & convert to 0-255
+    const r = Math.max(0, Math.min(255, Math.round(rL * 255)));
+    const g = Math.max(0, Math.min(255, Math.round(gL * 255)));
+    const bVal = Math.max(0, Math.min(255, Math.round(bL * 255)));
+
+    return { r, g, b: bVal };
+};
+
 /**
  * CIEDE2000 Color Difference formula implementation.
  * Returns a value where 1.0 is a "Just Noticeable Difference" (JND).
@@ -243,95 +284,262 @@ export const reduceGridToAverageColors = (grid: string[][]): string[][] => {
 };
 
 /**
- * Identifies the top K dominant average colors using K-Means clustering.
- * Optimized by downsampling to unique colors or subset of pixels if needed.
+ * Calculates Euclidean distance in Lab color space.
  */
-export const getDominantColors = (grid: string[][], k: number = 5): string[] => {
-  // 1. Extract all valid RGB values, using a Map to count occurrences of unique colors
-  const colorCounts = new Map<string, number>();
+const euclideanLabDist = (lab1: Lab, lab2: Lab): number => {
+    const dl = lab1.l - lab2.l;
+    const da = lab1.a - lab2.a;
+    const db = lab1.b - lab2.b;
+    return Math.sqrt(dl * dl + da * da + db * db);
+};
+
+/**
+ * Connected components DBSCAN with minPts = 0, eps = 9 to group Lab colors.
+ */
+const dbscanWithMinPts0 = (
+    points: { count: number; lab: Lab }[],
+    eps: number = 50
+): number[] => {
+    const n = points.length;
+    const labels = new Array(n).fill(-1);
+    let clusterId = 0;
+
+    for (let i = 0; i < n; i++) {
+        if (labels[i] !== -1) continue;
+
+        const queue: number[] = [i];
+        labels[i] = clusterId;
+
+        let head = 0;
+        while (head < queue.length) {
+            const curr = queue[head++];
+            for (let j = 0; j < n; j++) {
+                if (labels[j] === -1) {
+                    const dist = euclideanLabDist(points[curr].lab, points[j].lab);
+                    if (dist <= eps) {
+                        labels[j] = clusterId;
+                        queue.push(j);
+                    }
+                }
+            }
+        }
+        clusterId++;
+    }
+
+    return labels;
+};
+
+export interface DominantColorsResult {
+  allColors: string[];
+  defaultSelected: string[];
+  debugInfo?: {
+    totalPixels: number;
+    transparentPixels: number;
+    rawVoxelCount: number;
+    retainedVoxelCount: number;
+    voxels: {
+      index: number;
+      count: number;
+      avgLab: { l: number; a: number; b: number };
+      hex: string;
+      clusterId: number;
+      isClusterRepresentative: boolean;
+    }[];
+    dbscanEps: number;
+    dbscanMinPts: number;
+  };
+}
+
+/**
+ * Identifies dominant colors using CIELAB voxel segmentation and DBSCAN cluster representatives.
+ */
+export const getDominantColors = (grid: string[][]): DominantColorsResult => {
+  const voxels = new Map<string, { key: string; lIdx: number; aIdx: number; bIdx: number; count: number; sumL: number; sumA: number; sumB: number }>();
+  let totalPixels = 0;
+  let transparentPixels = 0;
+
   grid.forEach(row => {
     row.forEach(color => {
-      if (color !== 'transparent') {
-        colorCounts.set(color, (colorCounts.get(color) || 0) + 1);
+      if (color === 'transparent') {
+        transparentPixels++;
+      } else {
+        totalPixels++;
+        const rgb = hexToRgb(color);
+        if (rgb) {
+          const lab = rgbToLab(rgb.r, rgb.g, rgb.b);
+          // Map L to [0, 100] with 4 blocks of size 25
+          const lIdx = Math.max(0, Math.min(3, Math.floor(lab.l / 25)));
+          // Map a to [-128, 128] with 16 blocks of size 16
+          const aIdx = Math.max(0, Math.min(15, Math.floor((lab.a + 128) / 16)));
+          // Map b to [-128, 128] with 16 blocks of size 16
+          const bIdx = Math.max(0, Math.min(15, Math.floor((lab.b + 128) / 16)));
+          
+          const key = `${lIdx}_${aIdx}_${bIdx}`;
+          if (!voxels.has(key)) {
+            voxels.set(key, { key, lIdx, aIdx, bIdx, count: 0, sumL: 0, sumA: 0, sumB: 0 });
+          }
+          const v = voxels.get(key)!;
+          v.count++;
+          v.sumL += lab.l;
+          v.sumA += lab.a;
+          v.sumB += lab.b;
+        }
       }
     });
   });
 
-  const uniqueColors = Array.from(colorCounts.keys());
-  if (uniqueColors.length === 0) return [];
-  
-  const pixels: (RGB & { count: number, lab: Lab })[] = uniqueColors.map(hex => {
-      const rgb = hexToRgb(hex);
-      if (!rgb) return null;
-      return { ...rgb, count: colorCounts.get(hex)!, lab: rgbToLab(rgb.r, rgb.g, rgb.b) };
-  }).filter(p => p !== null) as (RGB & { count: number, lab: Lab })[];
+  const rawVoxelCount = voxels.size;
 
-  if (pixels.length === 0) return [];
+  // Sort descend by pixel count, and keep at most the top 50 to limit space size
+  const sortedVoxels = Array.from(voxels.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 50);
 
-  if (pixels.length <= k) {
-      return pixels.map(p => rgbToHex(p.r, p.g, p.b));
+  if (sortedVoxels.length === 0) {
+    return {
+      allColors: [],
+      defaultSelected: [],
+      debugInfo: {
+        totalPixels,
+        transparentPixels,
+        rawVoxelCount,
+        retainedVoxelCount: 0,
+        voxels: [],
+        dbscanEps: 9,
+        dbscanMinPts: 0
+      }
+    };
   }
 
-  // 2. Initialize Centroids
-  let centroids: (RGB & { lab: Lab })[] = [];
-  const sortedByCount = [...pixels].sort((a, b) => b.count - a.count);
-  centroids = sortedByCount.slice(0, k).map(p => ({ r: p.r, g: p.g, b: p.b, lab: p.lab }));
+  // Record voxel representative colors as average of all pixels in the voxel (directly in LAB coordinates, NO conversion to RGB yet)
+  const retainedColors = sortedVoxels.map(v => {
+    const L_avg = v.sumL / v.count;
+    const a_avg = v.sumA / v.count;
+    const b_avg = v.sumB / v.count;
+    return {
+      count: v.count,
+      lab: { l: L_avg, a: a_avg, b: b_avg }
+    };
+  });
 
-  // 3. K-Means Loop
-  const maxIterations = 10;
-  for (let iter = 0; iter < maxIterations; iter++) {
-      const clusters: (RGB & { count: number, lab: Lab })[][] = Array.from({ length: k }, () => []);
+  // --- Start of Adaptive DBSCAN EPS calculation ---
+  let eps = 14.0; // Dynamic default fallback
+  const N = retainedColors.length;
 
-      pixels.forEach(p => {
-          let minDist = Infinity;
-          let clusterIndex = 0;
-          
-          centroids.forEach((c, idx) => {
-              const dist = deltaE2000(p.lab, c.lab);
-              if (dist < minDist) {
-                  minDist = dist;
-                  clusterIndex = idx;
-              }
-          });
-          clusters[clusterIndex].push(p);
-      });
-
-      let converged = true;
-      clusters.forEach((cluster, idx) => {
-          if (cluster.length === 0) return;
-
-          let totalWeight = 0;
-          const sum = cluster.reduce((acc, p) => {
-              totalWeight += p.count;
-              return { 
-                r: acc.r + (p.r * p.count), 
-                g: acc.g + (p.g * p.count), 
-                b: acc.b + (p.b * p.count) 
-              };
-          }, { r: 0, g: 0, b: 0 });
-
-          const newR = sum.r / totalWeight;
-          const newG = sum.g / totalWeight;
-          const newB = sum.b / totalWeight;
-
-          if (Math.abs(newR - centroids[idx].r) > 0.5 || 
-              Math.abs(newG - centroids[idx].g) > 0.5 || 
-              Math.abs(newB - centroids[idx].b) > 0.5) {
-              converged = false;
+  if (N > 1) {
+    // 1. Calculate the density profiling (average nearest neighbor distance) in LAB space
+    let sumMinDist = 0;
+    for (let i = 0; i < N; i++) {
+      let minDist = Infinity;
+      for (let j = 0; j < N; j++) {
+        if (i !== j) {
+          const dist = euclideanLabDist(retainedColors[i].lab, retainedColors[j].lab);
+          if (dist < minDist) {
+            minDist = dist;
           }
+        }
+      }
+      sumMinDist += minDist;
+    }
+    const avgMinDist = sumMinDist / N;
 
-          centroids[idx] = { 
-            r: newR, 
-            g: newG, 
-            b: newB, 
-            lab: rgbToLab(newR, newG, newB) 
-          };
-      });
+    // 2. Compute a base eps value based on the total quantity of colors (N)
+    let baseEps = 14.0;
+    if (N <= 5) {
+      baseEps = 12.0;
+    } else if (N <= 15) {
+      baseEps = 12.0 + (N - 5) * 0.5; // at N=15, baseEps is 17.0
+    } else if (N <= 30) {
+      baseEps = 17.0 - (N - 15) * 0.25; // at N=30, baseEps is 13.25
+    } else {
+      baseEps = Math.max(9.0, 13.25 - (N - 30) * 0.05);
+    }
 
-      if (converged) break;
+    // 3. Scale baseEps adaptively with density factor (avgMinDist)
+    // Scale avgMinDist relative to a baseline of 16.0
+    const densityFactor = Math.max(0.7, Math.min(1.4, avgMinDist / 16.0));
+    eps = baseEps * densityFactor;
+
+    // 4. Clamping parameters based on physical separation and voxel dimensions
+    // We lowered the clamping range to [11.0, 22.0] so clusters are finer and capture differences more precisely.
+    eps = Math.max(11.0, Math.min(22.0, eps));
+  }
+  // --- End of Adaptive DBSCAN EPS calculation ---
+
+  // Cluster retained colors using DBSCAN (with dynamically calculated adaptive eps) in LAB space
+  let labels = dbscanWithMinPts0(retainedColors, eps);
+
+  // If the image color is very rich and we produce more than 20 distinct classes,
+  // we adaptively increase the EPS radius to merge similar colors and keep final classes <= 20 if possible.
+  let uniqueClassCount = new Set(labels).size;
+  if (uniqueClassCount > 20) {
+    let currentEps = eps;
+    while (uniqueClassCount > 20 && currentEps < 65.0) {
+      currentEps += 1.0;
+      labels = dbscanWithMinPts0(retainedColors, currentEps);
+      uniqueClassCount = new Set(labels).size;
+    }
+    eps = currentEps; // Keep the updated eps in debug logs
+  }
+  
+  const allColors: string[] = [];
+
+  // Convert LAB points to RGB/Hex color space ONLY after running DBSCAN
+  for (let i = 0; i < retainedColors.length; i++) {
+    const item = retainedColors[i];
+    const rgb = labToRgb(item.lab.l, item.lab.a, item.lab.b);
+    const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+    allColors.push(hex);
   }
 
-  return centroids.map(c => rgbToHex(Math.round(c.r), Math.round(c.g), Math.round(c.b)));
+  // Find the representative voxel with the largest pixel count in each cluster
+  const bestPointIndexByCluster = new Map<number, number>();
+  for (let i = 0; i < retainedColors.length; i++) {
+    const clusterId = labels[i];
+    if (!bestPointIndexByCluster.has(clusterId)) {
+      bestPointIndexByCluster.set(clusterId, i);
+    } else {
+      const currentBestIdx = bestPointIndexByCluster.get(clusterId)!;
+      if (retainedColors[i].count > retainedColors[currentBestIdx].count) {
+        bestPointIndexByCluster.set(clusterId, i);
+      }
+    }
+  }
+
+  // Default selected colors should be the unique hex values of these best points
+  const defaultSelectedSet = new Set<string>();
+  bestPointIndexByCluster.forEach((bestIdx) => {
+    defaultSelectedSet.add(allColors[bestIdx]);
+  });
+  const defaultSelected = Array.from(defaultSelectedSet);
+
+  // Compile detailed debug info
+  const debugVoxels = retainedColors.map((item, i) => {
+    const clusterId = labels[i];
+    const isRep = bestPointIndexByCluster.get(clusterId) === i;
+    return {
+      index: i,
+      count: item.count,
+      avgLab: item.lab,
+      hex: allColors[i],
+      clusterId,
+      isClusterRepresentative: isRep
+    };
+  });
+
+  return {
+    allColors,
+    defaultSelected,
+    debugInfo: {
+      totalPixels,
+      transparentPixels,
+      rawVoxelCount,
+      retainedVoxelCount: retainedColors.length,
+      voxels: debugVoxels,
+      dbscanEps: Number(eps.toFixed(2)),
+      dbscanMinPts: 0
+    }
+  };
 };
 
 /**

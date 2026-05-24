@@ -31,9 +31,6 @@ const App: React.FC = () => {
   const [boardStyle, setBoardStyle] = useState<BoardStyle>(BoardStyle.SQUARE);
   const [beadSize, setBeadSize] = useState<number>(APP_CONFIG.DEFAULT_BEAD_SIZE); // Percentage 20-100
 
-  // New Settings State
-  const [dominantColorCount, setDominantColorCount] = useState<number>(10);
-
   // History State
   const [history, setHistory] = useState<GridData[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
@@ -46,6 +43,8 @@ const App: React.FC = () => {
   // Dominant Colors Modal State
   const [isColorModalOpen, setIsColorModalOpen] = useState(false);
   const [dominantColors, setDominantColors] = useState<string[]>([]);
+  const [defaultSelectedColors, setDefaultSelectedColors] = useState<string[]>([]);
+  const [dominantColorsDebug, setDominantColorsDebug] = useState<any>(null);
 
   // Blueprint Modal State
   const [isBlueprintModalOpen, setIsBlueprintModalOpen] = useState(false);
@@ -61,6 +60,13 @@ const App: React.FC = () => {
     setHistory([initialGrid]);
     setHistoryIndex(0);
   }, [gridSize]); // Reset everything when grid size changes
+
+  // Ensure beadSize is always 100 (maximum diameter) when in bead mode
+  useEffect(() => {
+    if (boardStyle === BoardStyle.BEAD) {
+      setBeadSize(100);
+    }
+  }, [boardStyle]);
 
   // History Helper: Add current grid state to history
   const addToHistory = useCallback((newGridState: GridData) => {
@@ -154,8 +160,10 @@ const App: React.FC = () => {
   };
 
   const handleIdentifyColors = () => {
-    const colors = getDominantColors(grid, dominantColorCount);
-    setDominantColors(colors);
+    const result = getDominantColors(grid);
+    setDominantColors(result.allColors);
+    setDefaultSelectedColors(result.defaultSelected);
+    setDominantColorsDebug(result.debugInfo);
     setIsColorModalOpen(true);
   };
 
@@ -362,17 +370,17 @@ const App: React.FC = () => {
         theme={theme}
         setTheme={setTheme}
         lang={lang}
-        dominantCount={dominantColorCount}
-        setDominantCount={setDominantColorCount}
       />
 
       <DominantColorsModal
         isOpen={isColorModalOpen}
         onClose={() => setIsColorModalOpen(false)}
         colors={dominantColors}
+        defaultSelectedColors={defaultSelectedColors}
         lang={lang}
         theme={theme}
         onApply={handleApplyPalette}
+        debugInfo={dominantColorsDebug}
       />
 
       <BlueprintModal 

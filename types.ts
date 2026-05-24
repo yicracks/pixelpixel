@@ -26,9 +26,9 @@ export const EMPTY_COLOR = 'transparent'; // Represents an erased/empty cell
 
 export const APP_CONFIG = {
   DEFAULT_GRID_SIZE: 40,
-  MIN_GRID_SIZE: 8,
+  MIN_GRID_SIZE: 10,
   MAX_GRID_SIZE: 100,
-  DEFAULT_BEAD_SIZE: 85,
+  DEFAULT_BEAD_SIZE: 100,
   PRESETS: [20, 40, 60]
 };
 

@@ -200,6 +200,14 @@ const BlueprintModal: React.FC<BlueprintModalProps> = ({
     };
   }, [grid]);
 
+  const handleDownloadClick = () => {
+    if (analysis.totalColors > 50) {
+      alert(lang === 'zh' ? '颜色过多无法使用图纸，请先回主页面点击识别主要色彩' : 'Too many colors to use the blueprint, please return to the main page and click "Identify Main Colors" first.');
+      return;
+    }
+    handleDownloadBlueprint(analysis, lang);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -310,8 +318,12 @@ const BlueprintModal: React.FC<BlueprintModalProps> = ({
         {/* Footer Actions */}
         <div className={`p-6 border-t flex justify-end gap-3 ${isDark ? 'border-slate-800 bg-slate-900/50' : 'border-slate-100 bg-slate-50'}`}>
             <button 
-                onClick={() => handleDownloadBlueprint(analysis, lang)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-white border border-slate-200 hover:bg-slate-50 text-slate-600'}`}
+                onClick={handleDownloadClick}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                  analysis.totalColors > 50
+                    ? 'opacity-60 cursor-not-allowed bg-slate-200 text-slate-400 dark:bg-slate-800 dark:text-slate-500 border border-transparent'
+                    : isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-white border border-slate-200 hover:bg-slate-50 text-slate-600'
+                }`}
             >
                 <Download size={16} />
                 {lang === 'zh' ? '下载图纸数据' : 'Download Blueprint Data'}

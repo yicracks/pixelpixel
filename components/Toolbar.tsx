@@ -187,25 +187,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
              theme={theme}
            />
         </div>
-
-        {/* Bead Size Slider - Only visible in Bead mode */}
-        {boardStyle === BoardStyle.BEAD && (
-            <div className={`mt-3 p-2 rounded-lg border animate-in fade-in slide-in-from-top-2 duration-200 ${isDark ? 'bg-slate-900/30 border-slate-700/30' : 'bg-slate-50 border-slate-200'}`}>
-                <div className="flex justify-between items-center mb-1">
-                    <span className="text-[10px] uppercase font-bold text-slate-500">{t.bead_diameter}</span>
-                    <span className={`text-xs font-mono ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{beadSize}%</span>
-                </div>
-                <input 
-                    type="range" 
-                    min="20" 
-                    max="100" 
-                    step="5"
-                    value={beadSize}
-                    onChange={(e) => setBeadSize(Number(e.target.value))}
-                    className={`w-full h-1.5 rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400 ${isDark ? 'bg-slate-700' : 'bg-slate-300'}`}
-                />
-            </div>
-        )}
       </div>
 
       {/* --- Tools --- */}
