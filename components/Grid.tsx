@@ -8,6 +8,7 @@ interface GridProps {
   activeColor: string;
   setActiveColor: (c: string) => void;
   tool: ToolType;
+  brushSize: number;
   showGridLines: boolean;
   boardStyle: BoardStyle;
   beadSize: number;
@@ -22,6 +23,7 @@ const Grid: React.FC<GridProps> = ({
   activeColor, 
   setActiveColor,
   tool, 
+  brushSize,
   showGridLines,
   boardStyle,
   beadSize,
@@ -160,6 +162,8 @@ const Grid: React.FC<GridProps> = ({
     
     if (tool === ToolType.ERASER) {
       targetColor = EMPTY_COLOR;
+    } else if (tool === ToolType.FLOOD_ERASE) {
+      targetColor = EMPTY_COLOR;
     } else if (tool === ToolType.EYEDROPPER) {
         if (currentColor !== EMPTY_COLOR) {
             setActiveColor(currentColor);
@@ -169,8 +173,58 @@ const Grid: React.FC<GridProps> = ({
 
     if (currentColor === targetColor) return;
 
-    // Update internal ref immediately for performance
-    currentGrid[rowIndex][colIndex] = targetColor;
+    if (tool === ToolType.FILL || tool === ToolType.FLOOD_ERASE) {
+      const rows = currentGrid.length;
+      const cols = currentGrid[0].length;
+      const queue: [number, number][] = [[rowIndex, colIndex]];
+      const targetVal = currentColor;
+
+      while (queue.length > 0) {
+        const [r, c] = queue.shift()!;
+        if (currentGrid[r][c] === targetVal) {
+          currentGrid[r][c] = targetColor;
+          
+          if (r > 0 && currentGrid[r - 1][c] === targetVal) queue.push([r - 1, c]);
+          if (r < rows - 1 && currentGrid[r + 1][c] === targetVal) queue.push([r + 1, c]);
+          if (c > 0 && currentGrid[r][c - 1] === targetVal) queue.push([r, c - 1]);
+          if (c < cols - 1 && currentGrid[r][c + 1] === targetVal) queue.push([r, c + 1]);
+        }
+      }
+    } else {
+      // Update internal ref immediately for performance, taking brushSize into account for PEN and ERASER tools.
+      const rows = currentGrid.length;
+      const cols = currentGrid[0].length;
+      const D = brushSize;
+
+      if (D <= 1) {
+        currentGrid[rowIndex][colIndex] = targetColor;
+      } else {
+        const dSq = (D / 2) * (D / 2);
+        const half = (D - 1) / 2;
+        const rStart = Math.max(0, Math.floor(rowIndex - half));
+        const rEnd = Math.min(rows - 1, Math.ceil(rowIndex + half));
+        const cStart = Math.max(0, Math.floor(colIndex - half));
+        const cEnd = Math.min(cols - 1, Math.ceil(colIndex + half));
+
+        for (let r = rStart; r <= rEnd; r++) {
+          for (let c = cStart; c <= cEnd; c++) {
+            let distSq;
+            if (D % 2 === 0) {
+              const dr = r - (rowIndex + 0.5);
+              const dc = c - (colIndex + 0.5);
+              distSq = dr * dr + dc * dc;
+            } else {
+              const dr = r - rowIndex;
+              const dc = c - colIndex;
+              distSq = dr * dr + dc * dc;
+            }
+            if (distSq <= dSq) {
+              currentGrid[r][c] = targetColor;
+            }
+          }
+        }
+      }
+    }
     
     // Request a frame to redraw canvas
     requestAnimationFrame(draw);
@@ -187,6 +241,7 @@ const Grid: React.FC<GridProps> = ({
 
   const handleMouseMove = (e: React.MouseEvent | MouseEvent) => {
     if (!isDrawing.current) return;
+    if (tool === ToolType.FILL || tool === ToolType.FLOOD_ERASE || tool === ToolType.EYEDROPPER) return;
     const pos = getGridPos(e);
     if (pos) {
       if (!lastPos.current || lastPos.current.r !== pos.r || lastPos.current.c !== pos.c) {

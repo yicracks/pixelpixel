@@ -30,6 +30,7 @@ const App: React.FC = () => {
   const [showGridLines, setShowGridLines] = useState<boolean>(true);
   const [boardStyle, setBoardStyle] = useState<BoardStyle>(BoardStyle.SQUARE);
   const [beadSize, setBeadSize] = useState<number>(APP_CONFIG.DEFAULT_BEAD_SIZE); // Percentage 20-100
+  const [brushSize, setBrushSize] = useState<number>(1);
 
   // History State
   const [history, setHistory] = useState<GridData[]>([]);
@@ -174,6 +175,103 @@ const App: React.FC = () => {
     setIsColorModalOpen(false);
   };
 
+  const handleDenoise = () => {
+    const rows = grid.length;
+    if (rows === 0) return;
+    const cols = grid[0].length;
+    
+    const newGrid = grid.map(row => [...row]);
+    let updatedCount = 0;
+
+    const isTransparent = (color: string) => color === EMPTY_COLOR || color === 'transparent';
+
+    // 1. Smooth out isolated/noise individual pixels (if all 8 surrounding neighbors are the exact same color C, change center to C)
+    for (let r = 1; r < rows - 1; r++) {
+      for (let c = 1; c < cols - 1; c++) {
+        const centerColor = grid[r][c];
+        const n1 = grid[r - 1][c - 1];
+        const n2 = grid[r - 1][c];
+        const n3 = grid[r - 1][c + 1];
+        const n4 = grid[r][c - 1];
+        const n5 = grid[r][c + 1];
+        const n6 = grid[r + 1][c - 1];
+        const n7 = grid[r + 1][c];
+        const n8 = grid[r + 1][c + 1];
+
+        // All 8 neighbors must be of the exact same color n1
+        if (n1 === n2 && n1 === n3 && n1 === n4 && n1 === n5 && n1 === n6 && n1 === n7 && n1 === n8) {
+          if (centerColor !== n1) {
+            newGrid[r][c] = n1;
+            updatedCount++;
+          }
+        }
+      }
+    }
+
+    // 2. Erase isolated colored regions (islands) that are surrounded by transparent/empty pixels.
+    // We find all 8-connected components of non-transparent pixels.
+    const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
+    const components: [number, number][][] = [];
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (!isTransparent(newGrid[r][c]) && !visited[r][c]) {
+          const comp: [number, number][] = [];
+          const queue: [number, number][] = [[r, c]];
+          visited[r][c] = true;
+
+          while (queue.length > 0) {
+            const [currR, currC] = queue.shift()!;
+            comp.push([currR, currC]);
+
+            // 8-connectivity check
+            for (let dr = -1; dr <= 1; dr++) {
+              for (let dc = -1; dc <= 1; dc++) {
+                if (dr === 0 && dc === 0) continue;
+                const nr = currR + dr;
+                const nc = currC + dc;
+                if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+                  if (!isTransparent(newGrid[nr][nc]) && !visited[nr][nc]) {
+                    visited[nr][nc] = true;
+                    queue.push([nr, nc]);
+                  }
+                }
+              }
+            }
+          }
+          components.push(comp);
+        }
+      }
+    }
+
+    // Identify and remove isolated noise islands
+    if (components.length > 1) {
+      // Find the size of the largest connected component (representing the main drawing)
+      const maxSize = Math.max(...components.map(c => c.length), 0);
+
+      components.forEach(comp => {
+        // If it is not the largest component, and fits the criteria of being a minor stray island
+        // e.g., size is smaller than 16 pixels OR less than 15% of the main drawing (up to 32 pixels max)
+        const size = comp.length;
+        if (size < maxSize) {
+          const isStrayIsland = size <= 16 || (size <= 32 && size < maxSize * 0.15);
+          if (isStrayIsland) {
+            comp.forEach(([cr, cc]) => {
+              newGrid[cr][cc] = EMPTY_COLOR;
+              updatedCount++;
+            });
+          }
+        }
+      });
+    }
+
+    // Trigger update if grid has changed
+    if (updatedCount > 0) {
+      setGrid(newGrid);
+      addToHistory(newGrid);
+    }
+  };
+
   const toggleLanguage = () => {
     setLang(prev => prev === 'zh' ? 'en' : 'zh');
   };
@@ -250,6 +348,9 @@ const App: React.FC = () => {
             setBeadSize={setBeadSize}
             lang={lang}
             theme={theme}
+            onDenoise={handleDenoise}
+            brushSize={brushSize}
+            setBrushSize={setBrushSize}
           />
         </section>
 
@@ -322,6 +423,7 @@ const App: React.FC = () => {
              activeColor={activeColor}
              setActiveColor={setActiveColor}
              tool={tool}
+             brushSize={brushSize}
              showGridLines={showGridLines}
              boardStyle={boardStyle}
              beadSize={beadSize}

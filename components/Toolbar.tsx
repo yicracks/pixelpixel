@@ -8,7 +8,9 @@ import {
   Circle,
   Clock,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  PaintBucket,
+  Sparkles
 } from 'lucide-react';
 import { ToolType, APP_CONFIG, BoardStyle, Language, Theme } from '../types';
 import { translations } from '../utils/translations';
@@ -28,6 +30,9 @@ interface ToolbarProps {
   setBeadSize: (s: number) => void;
   lang: Language;
   theme: Theme;
+  onDenoise: () => void;
+  brushSize: number;
+  setBrushSize: (s: number) => void;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
@@ -38,7 +43,10 @@ const Toolbar: React.FC<ToolbarProps> = ({
   boardStyle, setBoardStyle,
   beadSize, setBeadSize,
   lang,
-  theme
+  theme,
+  onDenoise,
+  brushSize,
+  setBrushSize
 }) => {
   const isDark = theme === 'dark';
   const [customSize, setCustomSize] = useState<string>(gridSize.toString());
@@ -116,14 +124,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
 
   const inputTextClass = isDark ? 'text-white' : 'text-slate-800';
 
-  const btnBaseClass = isDark 
-    ? 'bg-slate-700 text-slate-400 border-slate-600 hover:bg-slate-600 hover:text-slate-200' 
-    : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200 hover:text-slate-800';
-  
-  const btnActiveClass = isDark 
-    ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20' 
-    : 'bg-blue-500 border-blue-400 text-white shadow-lg shadow-blue-500/20';
-
   return (
     <div className={`flex flex-col gap-6 p-5 backdrop-blur-xl border rounded-2xl shadow-xl w-full max-w-[min(320px,88vw)] h-fit overflow-y-auto max-h-[90vh] transition-colors duration-300 ${containerClass}`}>
       
@@ -133,20 +133,26 @@ const Toolbar: React.FC<ToolbarProps> = ({
           {t.size_label}
         </label>
         <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap gap-2">
-            {APP_CONFIG.PRESETS.map(size => (
-              <button
-                key={size}
-                type="button"
-                onClick={() => setGridSize(size)}
-                className={`
-                  flex-1 px-3 py-1.5 text-sm font-medium rounded-md border transition-all
-                  ${gridSize === size ? btnActiveClass : btnBaseClass}
-                `}
-              >
-                {size}
-              </button>
-            ))}
+          {/* Slider input */}
+          <div className="flex flex-col gap-1.5 px-0.5">
+            <input 
+              type="range"
+              min={APP_CONFIG.MIN_GRID_SIZE}
+              max={APP_CONFIG.MAX_GRID_SIZE}
+              step={1}
+              value={gridSize}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setGridSize(val);
+                setCustomSize(val.toString());
+              }}
+              className={`w-full h-1.5 rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400 ${isDark ? 'bg-slate-700' : 'bg-slate-300'}`}
+            />
+            <div className="flex justify-between text-[10px] font-mono text-slate-400 px-0.5">
+              <span>{APP_CONFIG.MIN_GRID_SIZE} px</span>
+              <span className="font-bold text-blue-500">{gridSize} px</span>
+              <span>{APP_CONFIG.MAX_GRID_SIZE} px</span>
+            </div>
           </div>
           
           {/* Custom Input */}
@@ -171,7 +177,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
       {/* --- Board Style --- */}
       <div>
         <label className={`text-xs font-semibold uppercase tracking-wider mb-2 block ${labelClass}`}>{t.board_style}</label>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
            <ToolButton 
              active={boardStyle === BoardStyle.SQUARE}
              onClick={() => setBoardStyle(BoardStyle.SQUARE)}
@@ -186,13 +192,20 @@ const Toolbar: React.FC<ToolbarProps> = ({
              label={t.style_bead}
              theme={theme}
            />
+           <ToolButton 
+             active={showGridLines} 
+             onClick={() => setShowGridLines(!showGridLines)} 
+             icon={<Grid3X3 size={18} />} 
+             label={t.tool_grid}
+             theme={theme}
+           />
         </div>
       </div>
 
       {/* --- Tools --- */}
       <div>
         <label className={`text-xs font-semibold uppercase tracking-wider mb-2 block ${labelClass}`}>{t.tools_label}</label>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <ToolButton 
             active={tool === ToolType.PEN} 
             onClick={() => setTool(ToolType.PEN)} 
@@ -215,13 +228,53 @@ const Toolbar: React.FC<ToolbarProps> = ({
             theme={theme}
           />
           <ToolButton 
-            active={showGridLines} 
-            onClick={() => setShowGridLines(!showGridLines)} 
-            icon={<Grid3X3 size={18} />} 
-            label={t.tool_grid}
+            active={tool === ToolType.FILL} 
+            onClick={() => setTool(ToolType.FILL)} 
+            icon={<PaintBucket size={18} />} 
+            label={t.tool_fill}
+            theme={theme}
+          />
+          <ToolButton 
+            active={tool === ToolType.FLOOD_ERASE} 
+            onClick={() => setTool(ToolType.FLOOD_ERASE)} 
+            icon={
+              <div className="relative w-5 h-5 flex items-center justify-center">
+                <PaintBucket size={18} className="opacity-80" />
+                <div className="absolute -bottom-1 -right-1 bg-red-500 text-white rounded p-[1px] shadow-sm flex items-center justify-center border border-white dark:border-slate-800 scale-90">
+                  <Eraser size={8} strokeWidth={3} />
+                </div>
+              </div>
+            } 
+            label={t.tool_flood_erase}
+            theme={theme}
+          />
+          <ToolButton 
+            active={false} 
+            onClick={onDenoise} 
+            icon={<Sparkles size={18} className="text-amber-400" />} 
+            label={t.tool_denoise}
             theme={theme}
           />
         </div>
+
+        {/* Brush/Eraser size slider shown if PEN or ERASER is selected */}
+        {(tool === ToolType.PEN || tool === ToolType.ERASER) && (
+          <div className="mt-3 p-3 rounded-xl bg-slate-100/50 dark:bg-slate-950/20 border border-slate-200/50 dark:border-slate-800/50 animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="flex justify-between items-center mb-1.5">
+              <span className={`text-[11px] font-semibold ${labelClass}`}>{t.brush_size}</span>
+              <span className="text-xs font-mono font-bold text-blue-500">{brushSize} px</span>
+            </div>
+            <input 
+              type="range"
+              min={1}
+              max={20}
+              step={1}
+              value={brushSize}
+              onChange={(e) => setBrushSize(Number(e.target.value))}
+              className={`w-full h-1.5 rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400 ${isDark ? 'bg-slate-700' : 'bg-slate-300'}`}
+            />
+          </div>
+        )}
       </div>
 
       {/* --- Colors --- */}
@@ -292,7 +345,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
 
 // --- Sub-components for styling ---
 
-const ToolButton = ({ active, onClick, icon, label, theme }: any) => {
+const ToolButton = ({ active, onClick, icon, label, theme, text }: any) => {
   const isDark = theme === 'dark';
   return (
     <button
@@ -300,13 +353,14 @@ const ToolButton = ({ active, onClick, icon, label, theme }: any) => {
       onClick={onClick}
       title={label}
       className={`
-        flex items-center justify-center gap-2 p-3 rounded-xl transition-all
+        flex items-center justify-center gap-2 p-3 rounded-xl transition-all w-full
         ${active 
           ? (isDark ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25' : 'bg-blue-500 text-white shadow-lg shadow-blue-500/25')
           : (isDark ? 'bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-slate-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800')}
       `}
     >
       {icon}
+      {text && <span className="text-xs font-semibold whitespace-nowrap">{text}</span>}
     </button>
   );
 };

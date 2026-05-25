@@ -164,12 +164,33 @@ const BlueprintModal: React.FC<BlueprintModalProps> = ({
 
   // Analysis Logic
   const analysis = useMemo(() => {
+    let minRow = grid.length;
+    let maxRow = -1;
+    let minCol = grid[0]?.length || 0;
+    let maxCol = -1;
+
+    grid.forEach((row, rIdx) => {
+      row.forEach((cell, cIdx) => {
+        if (cell !== EMPTY_COLOR && cell !== 'transparent') {
+          if (rIdx < minRow) minRow = rIdx;
+          if (rIdx > maxRow) maxRow = rIdx;
+          if (cIdx < minCol) minCol = cIdx;
+          if (cIdx > maxCol) maxCol = cIdx;
+        }
+      });
+    });
+
+    const hasDrawing = maxRow >= 0 && maxCol >= 0;
+    const croppedGrid = hasDrawing
+      ? grid.slice(minRow, maxRow + 1).map(row => row.slice(minCol, maxCol + 1))
+      : grid;
+
     const colorMap = new Map<string, { index: number; count: number }>();
     let colorIndex = 1;
     const processedGrid: { color: string; index: number | null }[][] = [];
 
     // First pass: identify unique colors (excluding empty)
-    grid.forEach((row, rIdx) => {
+    croppedGrid.forEach((row, rIdx) => {
       processedGrid[rIdx] = [];
       row.forEach((cell, cIdx) => {
         if (cell === EMPTY_COLOR || cell === 'transparent') {
@@ -195,8 +216,8 @@ const BlueprintModal: React.FC<BlueprintModalProps> = ({
       processedGrid,
       uniqueColors,
       totalColors: uniqueColors.length,
-      rows: grid.length,
-      cols: grid[0]?.length || 0
+      rows: croppedGrid.length,
+      cols: croppedGrid[0]?.length || 0
     };
   }, [grid]);
 

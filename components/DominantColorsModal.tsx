@@ -129,6 +129,30 @@ const DominantColorsModal: React.FC<DominantColorsModalProps> = ({
                         </div>
                      );
                    })}
+                   
+                   {/* "Select All" Option Button at the end */}
+                   <div className="flex flex-col items-center gap-1">
+                       <button
+                         type="button"
+                         onClick={() => {
+                           const allSelected = selectedColors.length === colors.length;
+                           setSelectedColors(allSelected ? [] : [...colors]);
+                         }}
+                         className={`
+                             w-10 h-10 rounded-full shadow-md transition-all relative border flex items-center justify-center text-[10px] font-bold cursor-pointer
+                             ${isDark 
+                               ? 'bg-slate-700 hover:bg-slate-600 border-slate-600 text-slate-200' 
+                               : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'}
+                         `}
+                         title={selectedColors.length === colors.length ? (lang === 'zh' ? '取消全选' : 'Deselect All') : (lang === 'zh' ? '全选' : 'Select All')}
+                       >
+                         {selectedColors.length === colors.length ? (
+                           <span className="text-[9px] font-bold text-center leading-tight">{lang === 'zh' ? '清空' : 'None'}</span>
+                         ) : (
+                           <span className="text-[9px] font-bold text-center leading-tight">{lang === 'zh' ? '全选' : 'All'}</span>
+                         )}
+                       </button>
+                   </div>
                  </div>
                </div>
             )}
