@@ -11,7 +11,8 @@ export enum ToolType {
   ERASER = 'ERASER',
   FILL = 'FILL',
   FLOOD_ERASE = 'FLOOD_ERASE',
-  EYEDROPPER = 'EYEDROPPER'
+  EYEDROPPER = 'EYEDROPPER',
+  REPLACE = 'REPLACE'
 }
 
 export enum BoardStyle {

@@ -15,6 +15,7 @@ interface GridProps {
   onStrokeEnd?: () => void;
   lang: Language;
   theme: Theme;
+  onReplaceColorSelect?: (color: string) => void;
 }
 
 const Grid: React.FC<GridProps> = ({ 
@@ -29,7 +30,8 @@ const Grid: React.FC<GridProps> = ({
   beadSize,
   onStrokeEnd,
   lang,
-  theme
+  theme,
+  onReplaceColorSelect
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
@@ -233,6 +235,13 @@ const Grid: React.FC<GridProps> = ({
   const handleMouseDown = (e: React.MouseEvent) => {
     const pos = getGridPos(e);
     if (pos) {
+      if (tool === ToolType.REPLACE) {
+        const currentColor = grid[pos.r][pos.c];
+        if (onReplaceColorSelect) {
+          onReplaceColorSelect(currentColor);
+        }
+        return;
+      }
       isDrawing.current = true;
       lastPos.current = pos;
       paintCell(pos.r, pos.c);

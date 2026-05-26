@@ -10,7 +10,9 @@ import {
   ChevronDown,
   ChevronUp,
   PaintBucket,
-  Sparkles
+  Sparkles,
+  ArrowLeftRight,
+  RefreshCw
 } from 'lucide-react';
 import { ToolType, APP_CONFIG, BoardStyle, Language, Theme } from '../types';
 import { translations } from '../utils/translations';
@@ -33,6 +35,13 @@ interface ToolbarProps {
   onDenoise: () => void;
   brushSize: number;
   setBrushSize: (s: number) => void;
+  replaceSourceColor: string | null;
+  setReplaceSourceColor: (c: string | null) => void;
+  replaceTargetColor: string | null;
+  setReplaceTargetColor: (c: string | null) => void;
+  replaceActiveSlot: 'source' | 'target';
+  setReplaceActiveSlot: (s: 'source' | 'target') => void;
+  onReplaceExecute: () => void;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
@@ -46,7 +55,14 @@ const Toolbar: React.FC<ToolbarProps> = ({
   theme,
   onDenoise,
   brushSize,
-  setBrushSize
+  setBrushSize,
+  replaceSourceColor,
+  setReplaceSourceColor,
+  replaceTargetColor,
+  setReplaceTargetColor,
+  replaceActiveSlot,
+  setReplaceActiveSlot,
+  onReplaceExecute
 }) => {
   const isDark = theme === 'dark';
   const [customSize, setCustomSize] = useState<string>(gridSize.toString());
@@ -249,13 +265,109 @@ const Toolbar: React.FC<ToolbarProps> = ({
             theme={theme}
           />
           <ToolButton 
-            active={false} 
-            onClick={onDenoise} 
-            icon={<Sparkles size={18} className="text-amber-400" />} 
-            label={t.tool_denoise}
+            active={tool === ToolType.REPLACE} 
+            onClick={() => {
+              setTool(ToolType.REPLACE);
+              setReplaceActiveSlot('source');
+            }} 
+            icon={<ArrowLeftRight size={18} />} 
+            label={t.tool_replace}
             theme={theme}
           />
         </div>
+
+        {/* Action Button: Denoise */}
+        <div className="mt-2">
+          <button
+            type="button"
+            onClick={onDenoise}
+            className={`
+              flex items-center justify-center gap-2 p-2.5 rounded-xl transition-all w-full text-xs font-semibold
+              ${isDark ? 'bg-slate-700/60 text-slate-200 hover:bg-slate-600' : 'bg-slate-150 text-slate-600 hover:bg-slate-200'}
+            `}
+          >
+            <Sparkles size={16} className="text-amber-400 animate-pulse" />
+            <span>{t.tool_denoise}</span>
+          </button>
+        </div>
+
+        {/* Color Replacement options panel shown if REPLACE is active */}
+        {tool === ToolType.REPLACE && (
+          <div className="mt-3 p-3 rounded-xl bg-slate-100/50 dark:bg-slate-950/20 border border-slate-200/50 dark:border-slate-800/50 animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="text-[10px] font-semibold mb-2 text-center text-slate-500 dark:text-slate-400">
+              {replaceActiveSlot === 'source' ? t.replace_select_tip_1 : t.replace_select_tip_2}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              {/* Point 1 (Source Color) */}
+              <button
+                type="button"
+                onClick={() => setReplaceActiveSlot('source')}
+                className={`
+                  flex flex-col items-center p-2 rounded-lg border transition-all text-center
+                  ${replaceActiveSlot === 'source' 
+                    ? 'border-blue-500 ring-2 ring-blue-500/30 bg-blue-500/5' 
+                    : (isDark ? 'border-slate-700 hover:border-slate-600 bg-slate-800/30' : 'border-slate-200 hover:border-slate-300 bg-white')}
+                `}
+              >
+                <span className="text-[10px] font-medium text-slate-400 mb-1.5">{t.replace_source_label}</span>
+                <div 
+                  className={`w-8 h-8 rounded-full border border-slate-300 dark:border-slate-600 relative flex items-center justify-center font-mono text-xs overflow-hidden ${!replaceSourceColor ? 'bg-slate-200 dark:bg-slate-700' : ''}`}
+                  style={{ backgroundColor: replaceSourceColor || undefined }}
+                >
+                  {!replaceSourceColor && <Pipette size={14} className="text-slate-400" />}
+                  {replaceSourceColor && replaceSourceColor === 'transparent' && (
+                    <div className="absolute inset-0 bg-slate-100 dark:bg-slate-800 opacity-50 flex items-center justify-center text-[8px] text-slate-400">transparent</div>
+                  )}
+                </div>
+                <span className="text-[10px] font-mono mt-1 text-slate-600 dark:text-slate-300 truncate max-w-full">
+                  {replaceSourceColor ? (replaceSourceColor === 'transparent' ? 'Empty' : replaceSourceColor.toUpperCase()) : '?'}
+                </span>
+              </button>
+
+              {/* Point 2 (Target Color) */}
+              <button
+                type="button"
+                onClick={() => setReplaceActiveSlot('target')}
+                className={`
+                  flex flex-col items-center p-2 rounded-lg border transition-all text-center
+                  ${replaceActiveSlot === 'target' 
+                    ? 'border-blue-500 ring-2 ring-blue-500/30 bg-blue-500/5' 
+                    : (isDark ? 'border-slate-700 hover:border-slate-600 bg-slate-800/30' : 'border-slate-200 hover:border-slate-300 bg-white')}
+                `}
+              >
+                <span className="text-[10px] font-medium text-slate-400 mb-1.5">{t.replace_target_label}</span>
+                <div 
+                  className={`w-8 h-8 rounded-full border border-slate-300 dark:border-slate-600 relative flex items-center justify-center font-mono text-xs overflow-hidden ${!replaceTargetColor ? 'bg-slate-200 dark:bg-slate-700' : ''}`}
+                  style={{ backgroundColor: replaceTargetColor || undefined }}
+                >
+                  {!replaceTargetColor && <Pipette size={14} className="text-slate-400" />}
+                  {replaceTargetColor && replaceTargetColor === 'transparent' && (
+                    <div className="absolute inset-0 bg-slate-100 dark:bg-slate-800 opacity-50 flex items-center justify-center text-[8px] text-slate-400">transparent</div>
+                  )}
+                </div>
+                <span className="text-[10px] font-mono mt-1 text-slate-600 dark:text-slate-300 truncate max-w-full">
+                  {replaceTargetColor ? (replaceTargetColor === 'transparent' ? 'Empty' : replaceTargetColor.toUpperCase()) : '?'}
+                </span>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              disabled={!replaceSourceColor || !replaceTargetColor || replaceSourceColor === replaceTargetColor}
+              onClick={onReplaceExecute}
+              className={`
+                w-full py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5
+                ${(!replaceSourceColor || !replaceTargetColor || replaceSourceColor === replaceTargetColor)
+                  ? 'bg-slate-200 text-slate-400 dark:bg-slate-800 dark:text-slate-600 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-500/10 active:scale-95'}
+              `}
+            >
+              <RefreshCw size={13} />
+              <span>{t.replace_btn_label}</span>
+            </button>
+          </div>
+        )}
 
         {/* Brush/Eraser size slider shown if PEN or ERASER is selected */}
         {(tool === ToolType.PEN || tool === ToolType.ERASER) && (

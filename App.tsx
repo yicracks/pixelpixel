@@ -32,6 +32,11 @@ const App: React.FC = () => {
   const [beadSize, setBeadSize] = useState<number>(APP_CONFIG.DEFAULT_BEAD_SIZE); // Percentage 20-100
   const [brushSize, setBrushSize] = useState<number>(1);
 
+  // Replace tool state
+  const [replaceSourceColor, setReplaceSourceColor] = useState<string | null>(null);
+  const [replaceTargetColor, setReplaceTargetColor] = useState<string | null>(null);
+  const [replaceActiveSlot, setReplaceActiveSlot] = useState<'source' | 'target'>('source');
+
   // History State
   const [history, setHistory] = useState<GridData[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
@@ -272,6 +277,27 @@ const App: React.FC = () => {
     }
   };
 
+  const handleReplaceColorSelect = (color: string) => {
+    if (replaceActiveSlot === 'source') {
+      setReplaceSourceColor(color);
+      setReplaceActiveSlot('target');
+    } else {
+      setReplaceTargetColor(color);
+      setReplaceActiveSlot('source');
+    }
+  };
+
+  const handleReplaceExecute = () => {
+    if (!replaceSourceColor || !replaceTargetColor) return;
+    if (replaceSourceColor === replaceTargetColor) return;
+
+    const newGrid = grid.map(row => 
+      row.map(color => color === replaceSourceColor ? replaceTargetColor! : color)
+    );
+    setGrid(newGrid);
+    addToHistory(newGrid);
+  };
+
   const toggleLanguage = () => {
     setLang(prev => prev === 'zh' ? 'en' : 'zh');
   };
@@ -351,6 +377,13 @@ const App: React.FC = () => {
             onDenoise={handleDenoise}
             brushSize={brushSize}
             setBrushSize={setBrushSize}
+            replaceSourceColor={replaceSourceColor}
+            setReplaceSourceColor={setReplaceSourceColor}
+            replaceTargetColor={replaceTargetColor}
+            setReplaceTargetColor={setReplaceTargetColor}
+            replaceActiveSlot={replaceActiveSlot}
+            setReplaceActiveSlot={setReplaceActiveSlot}
+            onReplaceExecute={handleReplaceExecute}
           />
         </section>
 
@@ -430,6 +463,7 @@ const App: React.FC = () => {
              onStrokeEnd={handleStrokeEnd}
              lang={lang}
              theme={theme}
+             onReplaceColorSelect={handleReplaceColorSelect}
            />
 
            {/* Canvas Footer (Save + Analyze) */}
