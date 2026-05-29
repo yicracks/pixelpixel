@@ -146,7 +146,7 @@ const handleDownloadBlueprint = (analysis: any, lang: Language) => {
   const url = canvas.toDataURL('image/png');
   const link = document.createElement('a');
   link.href = url;
-  link.download = `blueprint_${analysis.rows}x${analysis.cols}.png`;
+  link.download = `blueprint_${analysis.rows}x${analysis.cols}_${Date.now()}.png`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

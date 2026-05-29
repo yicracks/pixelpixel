@@ -21,7 +21,7 @@ export enum BoardStyle {
 }
 
 export type Language = 'zh' | 'en';
-export type Theme = 'dark' | 'light';
+export type Theme = 'dark' | 'light' | 'forest';
 
 export const DEFAULT_COLOR = '#000000';
 export const EMPTY_COLOR = 'transparent'; // Represents an erased/empty cell

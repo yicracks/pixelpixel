@@ -19,7 +19,7 @@ const createGrid = (size: number): GridData => {
 const App: React.FC = () => {
   // Language & Theme State
   const [lang, setLang] = useState<Language>('zh');
-  const [theme, setTheme] = useState<Theme>('dark');
+  const [theme, setTheme] = useState<Theme>('light');
   
   // State
   const [gridSize, setGridSize] = useState<number>(APP_CONFIG.DEFAULT_GRID_SIZE);
@@ -249,23 +249,15 @@ const App: React.FC = () => {
       }
     }
 
-    // Identify and remove isolated noise islands
+    // Remove all smaller connected components, preserving only the largest component
     if (components.length > 1) {
-      // Find the size of the largest connected component (representing the main drawing)
       const maxSize = Math.max(...components.map(c => c.length), 0);
-
       components.forEach(comp => {
-        // If it is not the largest component, and fits the criteria of being a minor stray island
-        // e.g., size is smaller than 16 pixels OR less than 15% of the main drawing (up to 32 pixels max)
-        const size = comp.length;
-        if (size < maxSize) {
-          const isStrayIsland = size <= 16 || (size <= 32 && size < maxSize * 0.15);
-          if (isStrayIsland) {
-            comp.forEach(([cr, cc]) => {
-              newGrid[cr][cc] = EMPTY_COLOR;
-              updatedCount++;
-            });
-          }
+        if (comp.length < maxSize) {
+          comp.forEach(([cr, cc]) => {
+            newGrid[cr][cc] = EMPTY_COLOR;
+            updatedCount++;
+          });
         }
       });
     }
@@ -302,13 +294,25 @@ const App: React.FC = () => {
     setLang(prev => prev === 'zh' ? 'en' : 'zh');
   };
 
+  const buttonStyleClass = theme === 'dark'
+    ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
+    : theme === 'forest'
+      ? 'bg-[#ecf5ee] border-[#b0d0b9] hover:bg-[#dae9de] text-[#163c24]'
+      : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600';
+
+  const subTitleClass = theme === 'dark' 
+    ? "text-slate-400" 
+    : theme === 'forest' 
+      ? "text-[#2e5e3a]" 
+      : "text-slate-500";
+
   return (
-    <div className={`min-h-screen flex flex-col items-center justify-center p-3 md:p-8 relative overflow-hidden transition-colors duration-500 ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+    <div className={`min-h-screen flex flex-col items-center justify-center p-3 md:p-8 relative overflow-hidden transition-colors duration-500 ${theme === 'dark' ? 'bg-slate-900 text-slate-100' : theme === 'forest' ? 'bg-[#ebf3ed] text-[#13351e]' : 'bg-slate-50 text-slate-900'}`}>
         
       {/* Background decoration */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-         <div className={`absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] transition-colors duration-500 ${isDark ? 'bg-blue-600/10' : 'bg-blue-400/20'}`}></div>
-         <div className={`absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] transition-colors duration-500 ${isDark ? 'bg-purple-600/10' : 'bg-purple-400/20'}`}></div>
+         <div className={`absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] transition-colors duration-500 ${theme === 'dark' ? 'bg-blue-600/10' : theme === 'forest' ? 'bg-emerald-500/15' : 'bg-blue-400/20'}`}></div>
+         <div className={`absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] transition-colors duration-500 ${theme === 'dark' ? 'bg-purple-600/10' : theme === 'forest' ? 'bg-teal-500/15' : 'bg-purple-400/20'}`}></div>
       </div>
 
       <header className="mb-6 md:mb-8 z-10 text-center relative w-full max-w-6xl px-2">
@@ -316,14 +320,14 @@ const App: React.FC = () => {
         <div className="absolute right-0 top-0 hidden md:flex items-center gap-2">
             <button 
                 onClick={toggleLanguage}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-colors text-xs font-medium ${isDark ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600'}`}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-colors text-xs font-medium ${buttonStyleClass}`}
             >
                 <Languages size={14} />
                 {lang === 'zh' ? 'EN' : '中文'}
             </button>
             <button 
                 onClick={() => setIsSettingsModalOpen(true)}
-                className={`p-1.5 rounded-full border transition-colors ${isDark ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600'}`}
+                className={`p-1.5 rounded-full border transition-colors ${buttonStyleClass}`}
             >
                 <SettingsIcon size={14} />
             </button>
@@ -333,13 +337,13 @@ const App: React.FC = () => {
         <div className="absolute right-0 top-[-10px] md:hidden flex gap-2">
             <button 
                 onClick={toggleLanguage}
-                className={`p-2 rounded-full border transition-colors ${isDark ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600'}`}
+                className={`p-2 rounded-full border transition-colors ${buttonStyleClass}`}
             >
                 <Languages size={16} />
             </button>
              <button 
                 onClick={() => setIsSettingsModalOpen(true)}
-                className={`p-2 rounded-full border transition-colors ${isDark ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600'}`}
+                className={`p-2 rounded-full border transition-colors ${buttonStyleClass}`}
             >
                 <SettingsIcon size={16} />
             </button>
@@ -348,7 +352,7 @@ const App: React.FC = () => {
         <h1 className="text-3xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400 mb-2">
           {t.title}
         </h1>
-        <p className={isDark ? "text-slate-400" : "text-slate-500"}>{t.subtitle}</p>
+        <p className={subTitleClass}>{t.subtitle}</p>
       </header>
 
       <main className="w-full max-w-6xl z-10 flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-start justify-center">
@@ -388,7 +392,7 @@ const App: React.FC = () => {
         </section>
 
         {/* Center Canvas */}
-        <section className={`flex-1 order-1 md:order-2 p-3 md:p-8 rounded-2xl md:rounded-3xl border shadow-2xl backdrop-blur-sm flex flex-col items-center transition-colors duration-300 ${isDark ? 'bg-slate-800/30 border-slate-700/50' : 'bg-white/60 border-slate-200'}`}>
+        <section className={`flex-1 order-1 md:order-2 p-3 md:p-8 rounded-2xl md:rounded-3xl border shadow-2xl backdrop-blur-sm flex flex-col items-center transition-colors duration-300 ${theme === 'dark' ? 'bg-slate-800/30 border-slate-700/50' : theme === 'forest' ? 'bg-[#f4faf5be] border-[#bcd9c4]' : 'bg-white/60 border-slate-200'}`}>
            
            {/* Canvas Header (Icons + Undo/Redo/Clear) */}
            <div className="w-full flex items-center justify-between mb-6">
@@ -404,7 +408,7 @@ const App: React.FC = () => {
                     />
                     <button 
                       onClick={() => document.getElementById('grid-upload-input')?.click()}
-                      className={`p-2 rounded-lg transition-colors ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                      className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : theme === 'forest' ? 'bg-[#ecf5ee] border border-[#b0d0b9] text-[#13351e] hover:bg-[#dae9de]' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                       title={t.upload_image}
                     >
                       <ImageIcon size={20} />
@@ -412,7 +416,7 @@ const App: React.FC = () => {
                   </div>
                   <button 
                     onClick={handleIdentifyColors}
-                    className={`p-2 rounded-lg transition-colors ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                    className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : theme === 'forest' ? 'bg-[#ecf5ee] border border-[#b0d0b9] text-[#13351e] hover:bg-[#dae9de]' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                     title={t.identify_colors}
                   >
                     <Palette size={20} />
@@ -425,7 +429,7 @@ const App: React.FC = () => {
                   type="button"
                   onClick={handleUndo}
                   disabled={historyIndex <= 0}
-                  className={`p-2 rounded-lg transition-colors disabled:opacity-30 ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-200 disabled:hover:bg-slate-700' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:hover:bg-white'}`}
+                  className={`p-2 rounded-lg transition-colors disabled:opacity-30 ${theme === 'dark' ? 'bg-slate-700 hover:bg-slate-600 text-slate-200 disabled:hover:bg-slate-700' : theme === 'forest' ? 'bg-[#ecf5ee] border border-[#b0d0b9] text-[#13351e] hover:bg-[#dae9de] disabled:opacity-35 disabled:hover:bg-[#ecf5ee]' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:hover:bg-white'}`}
                   title={t.undo}
                 >
                   <Undo2 size={20} />
@@ -434,7 +438,7 @@ const App: React.FC = () => {
                   type="button"
                   onClick={handleRedo}
                   disabled={historyIndex >= history.length - 1}
-                  className={`p-2 rounded-lg transition-colors disabled:opacity-30 ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-200 disabled:hover:bg-slate-700' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:hover:bg-white'}`}
+                  className={`p-2 rounded-lg transition-colors disabled:opacity-30 ${theme === 'dark' ? 'bg-slate-700 hover:bg-slate-600 text-slate-200 disabled:hover:bg-slate-700' : theme === 'forest' ? 'bg-[#ecf5ee] border border-[#b0d0b9] text-[#13351e] hover:bg-[#dae9de] disabled:opacity-35 disabled:hover:bg-[#ecf5ee]' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:hover:bg-white'}`}
                   title={t.redo}
                 >
                   <Redo2 size={20} />
@@ -442,7 +446,7 @@ const App: React.FC = () => {
                 <button 
                   type="button"
                   onClick={handleClearRequest}
-                  className={`p-2 rounded-lg transition-colors ${isDark ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400' : 'bg-red-50 hover:bg-red-100 text-red-600 border border-red-100'}`}
+                  className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400' : theme === 'forest' ? 'bg-red-50/70 hover:bg-red-100 text-red-700 border border-red-200' : 'bg-red-50 hover:bg-red-100 text-red-600 border border-red-100'}`}
                   title={t.clear}
                 >
                   <Trash2 size={20} />
@@ -477,7 +481,7 @@ const App: React.FC = () => {
               </button>
               <button 
                 onClick={() => setIsBlueprintModalOpen(true)}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium transition-all active:scale-95 ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200'}`}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium transition-all active:scale-95 ${theme === 'dark' ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : theme === 'forest' ? 'bg-[#ecf5ee] border border-[#b0d0b9] text-[#13351e] hover:bg-[#dae9de]' : 'bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200'}`}
               >
                 <Search size={18} />
                 {t.analyze_blueprint}
@@ -487,7 +491,7 @@ const App: React.FC = () => {
 
       </main>
 
-      <footer className={`mt-12 text-sm z-10 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
+      <footer className={`mt-12 text-sm z-10 ${theme === 'dark' ? 'text-slate-600' : theme === 'forest' ? 'text-[#3e6f4f]' : 'text-slate-400'}`}>
         <p>{t.footer_text}</p>
       </footer>
 

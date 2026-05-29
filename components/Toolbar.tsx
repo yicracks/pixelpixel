@@ -128,17 +128,25 @@ const Toolbar: React.FC<ToolbarProps> = ({
   ];
 
   // Styles based on theme
-  const containerClass = isDark 
+  const containerClass = theme === 'dark' 
     ? 'bg-slate-800/50 border-slate-700 text-slate-100' 
-    : 'bg-white/80 border-slate-200 text-slate-800 shadow-slate-200';
+    : theme === 'forest'
+      ? 'bg-[#f4faf5be] border-[#bcd9c4] text-[#13351e] shadow-[#d0e5d5]/30'
+      : 'bg-white/80 border-slate-200 text-slate-800 shadow-slate-200';
   
-  const labelClass = isDark ? 'text-slate-400' : 'text-slate-500';
+  const labelClass = theme === 'dark' 
+    ? 'text-slate-400' 
+    : theme === 'forest'
+      ? 'text-[#2e5e3a]'
+      : 'text-slate-500';
   
-  const inputContainerClass = isDark 
+  const inputContainerClass = theme === 'dark' 
     ? 'bg-slate-900/50 border-slate-700/50' 
-    : 'bg-slate-100 border-slate-200';
+    : theme === 'forest'
+      ? 'bg-[#ecf5ee] border-[#bcd9c4]'
+      : 'bg-slate-100 border-slate-200';
 
-  const inputTextClass = isDark ? 'text-white' : 'text-slate-800';
+  const inputTextClass = theme === 'dark' ? 'text-white' : theme === 'forest' ? 'text-[#13351e]' : 'text-slate-800';
 
   return (
     <div className={`flex flex-col gap-6 p-5 backdrop-blur-xl border rounded-2xl shadow-xl w-full max-w-[min(320px,88vw)] h-fit overflow-y-auto max-h-[90vh] transition-colors duration-300 ${containerClass}`}>
@@ -458,7 +466,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
 // --- Sub-components for styling ---
 
 const ToolButton = ({ active, onClick, icon, label, theme, text }: any) => {
-  const isDark = theme === 'dark';
   return (
     <button
       type="button"
@@ -467,8 +474,8 @@ const ToolButton = ({ active, onClick, icon, label, theme, text }: any) => {
       className={`
         flex items-center justify-center gap-2 p-3 rounded-xl transition-all w-full
         ${active 
-          ? (isDark ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25' : 'bg-blue-500 text-white shadow-lg shadow-blue-500/25')
-          : (isDark ? 'bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-slate-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800')}
+          ? (theme === 'dark' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25' : theme === 'forest' ? 'bg-[#13351e] text-[#ebf3ed] shadow-md shadow-[#13351e]/20' : 'bg-blue-500 text-white shadow-lg shadow-blue-500/25')
+          : (theme === 'dark' ? 'bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-slate-200' : theme === 'forest' ? 'bg-[#ecf5ee] text-[#2d573d] hover:bg-[#dae9de] hover:text-[#13351e]' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800')}
       `}
     >
       {icon}

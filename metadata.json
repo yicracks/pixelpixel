@@ -2,5 +2,5 @@
   "name": "Pixel Art Studio",
   "description": "A professional pixel art editor featuring dynamic N*N grids and image-to-pixel conversion.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

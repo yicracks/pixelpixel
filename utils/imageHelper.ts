@@ -185,7 +185,7 @@ export const exportGridToImage = (grid: GridData, scale: number = 20) => {
   });
 
   const link = document.createElement('a');
-  link.download = `pixel-art-${Date.now()}.png`;
+  link.download = `pixel-art-${cols}x${rows}_${Date.now()}.png`;
   link.href = canvas.toDataURL('image/png');
   link.click();
 };
