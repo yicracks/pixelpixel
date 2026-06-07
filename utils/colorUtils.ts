@@ -179,7 +179,7 @@ interface ColorReference {
   g: number;
   b: number;
   lab: Lab;
-  labelId: string;
+  hex: string;
 }
 
 // Parse CSV content into usable reference points
@@ -187,20 +187,19 @@ const parseReferencePoints = (csv: string): ColorReference[] => {
   const lines = csv.trim().split('\n');
   const refs: ColorReference[] = [];
   // Determine start index based on header presence
-  const startIndex = lines[0].startsWith('R,G,B') ? 1 : 0;
+  const startIndex = lines[0].includes('R') ? 1 : 0;
 
   for (let i = startIndex; i < lines.length; i++) {
     const parts = lines[i].split(',');
-    if (parts.length < 6) continue;
+    if (parts.length < 4) continue;
     
     const r = parseInt(parts[0], 10);
     const g = parseInt(parts[1], 10);
     const b = parseInt(parts[2], 10);
-    // Label ID is at index 5
-    const labelId = parts[5].trim();
+    const hex = parts[3].trim();
     
     if (!isNaN(r)) {
-        refs.push({ r, g, b, lab: rgbToLab(r, g, b), labelId });
+        refs.push({ r, g, b, lab: rgbToLab(r, g, b), hex });
     }
   }
   return refs;
@@ -221,7 +220,7 @@ export const reduceGridToAverageColors = (grid: string[][]): string[][] => {
   const cols = newGrid[0].length;
 
   const groups: Record<string, { r: number, g: number, b: number, row: number, col: number }[]> = {};
-  const cache = new Map<string, string>(); // color -> bestLabel
+  const cache = new Map<string, string>(); // color -> bestLabel (closest hex)
 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -242,7 +241,7 @@ export const reduceGridToAverageColors = (grid: string[][]): string[][] => {
           const dist = deltaE2000(lab, ref.lab);
           if (dist < minDist) {
             minDist = dist;
-            bestLabel = ref.labelId;
+            bestLabel = ref.hex;
           }
         }
         cache.set(color, bestLabel);

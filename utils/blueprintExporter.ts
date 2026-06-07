@@ -216,5 +216,4 @@ export function downloadBlueprintPNG(analysis: BlueprintAnalysis, lang: Language
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  URL.revokeObjectURL(url);
 }

@@ -379,7 +379,7 @@ const App: React.FC = () => {
               <button
                 key={tab.key}
                 onClick={() => handleTabChange(tab.key as any)}
-                className={`flex items-center gap-1.5 px-3 md:px-5 py-1.5 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3.5 md:px-5 py-1.5 rounded-lg text-[13px] md:text-sm font-extrabold transition-all cursor-pointer ${
                   isActive
                     ? 'bg-blue-600 text-white shadow-sm'
                     : theme === 'dark'
