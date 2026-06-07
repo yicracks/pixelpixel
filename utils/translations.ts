@@ -67,6 +67,14 @@ export const translations = {
     generating: "生成中...",
     generate: "生成",
     dominant_count_label: "色彩提取数量",
+    tab_canvas: "画板",
+    tab_tutorial: "使用教程",
+    tab_download: "图纸下载",
+    tutorial_title: "像素画板完全使用指南",
+    download_title: "备份与图纸中心",
+    save_to_library: "保存到作品库",
+    save_to_library_success: "成功保存到图纸作品库！",
+    project_name_prompt: "请为作品输入一个名字：",
   },
   en: {
     title: "pixel pixel",
@@ -133,5 +141,13 @@ export const translations = {
     generating: "Generating...",
     generate: "Generate",
     dominant_count_label: "Dominant Color Count",
+    tab_canvas: "Pixel Canvas",
+    tab_tutorial: "Guide & Manual",
+    tab_download: "Library Hub",
+    tutorial_title: "Smart Pixel Art Studio Manual",
+    download_title: "Blueprint backup and zip exporter",
+    save_to_library: "Save to Studio Collection",
+    save_to_library_success: "Successfully saved to your local library!",
+    project_name_prompt: "Enter a name for your masterpiece:",
   }
 };

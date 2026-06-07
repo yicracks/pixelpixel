@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Undo2, Redo2, Languages, Settings as SettingsIcon, Image as ImageIcon, Palette, Trash2, Download, Search } from 'lucide-react';
+import { Undo2, Redo2, Languages, Settings as SettingsIcon, Image as ImageIcon, Palette, Trash2, Download, Search, Grid3X3, BookOpen, FolderDown } from 'lucide-react';
 import Grid from './components/Grid';
 import Toolbar from './components/Toolbar';
 import ClearConfirmationModal from './components/ClearConfirmationModal';
 import SettingsModal from './components/SettingsModal';
 import DominantColorsModal from './components/DominantColorsModal';
 import BlueprintModal from './components/BlueprintModal';
+import { TutorialView } from './components/TutorialView';
+import { LibraryView } from './components/LibraryView';
 import { GridData, ToolType, DEFAULT_COLOR, EMPTY_COLOR, BoardStyle, Language, Theme, APP_CONFIG } from './types';
 import { processImageToGrid, exportGridToImage } from './utils/imageHelper';
 import { translations } from './utils/translations';
@@ -17,9 +19,41 @@ const createGrid = (size: number): GridData => {
 };
 
 const App: React.FC = () => {
+  // Helper to parse path on load or back/forward popstate
+  const getTabFromPath = (): 'canvas' | 'tutorial' | 'download' => {
+    try {
+      const path = window.location.pathname.toLowerCase();
+      if (path.includes('/tutorial')) return 'tutorial';
+      if (path.includes('/download')) return 'download';
+    } catch (e) {
+      // safe fallback
+    }
+    return 'canvas';
+  };
+
   // Language & Theme State
   const [lang, setLang] = useState<Language>('zh');
   const [theme, setTheme] = useState<Theme>('light');
+  const [activeTab, setActiveTab] = useState<'canvas' | 'tutorial' | 'download'>(getTabFromPath);
+
+  // Tab routing sync with HTML5 history
+  const handleTabChange = (tabKey: 'canvas' | 'tutorial' | 'download') => {
+    setActiveTab(tabKey);
+    try {
+      const pathName = tabKey === 'canvas' ? '/' : `/${tabKey}`;
+      window.history.pushState(null, '', pathName);
+    } catch (e) {
+      console.warn('history pushState not accessible', e);
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setActiveTab(getTabFromPath());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
   
   // State
   const [gridSize, setGridSize] = useState<number>(APP_CONFIG.DEFAULT_GRID_SIZE);
@@ -307,55 +341,89 @@ const App: React.FC = () => {
       : "text-slate-500";
 
   return (
-    <div className={`min-h-screen flex flex-col items-center justify-center p-3 md:p-8 relative overflow-hidden transition-colors duration-500 ${theme === 'dark' ? 'bg-slate-900 text-slate-100' : theme === 'forest' ? 'bg-[#ebf3ed] text-[#13351e]' : 'bg-slate-50 text-slate-900'}`}>
+    <div className={`min-h-screen flex flex-col items-center pt-24 pb-12 px-3 md:px-8 relative overflow-x-hidden transition-colors duration-500 ${theme === 'dark' ? 'bg-slate-900 text-slate-100' : theme === 'forest' ? 'bg-[#ebf3ed] text-[#13351e]' : 'bg-slate-50 text-slate-900'}`}>
         
+      {/* Fixed Sticky Header / Blog Navigation Bar */}
+      <nav className={`fixed top-0 left-0 right-0 h-16 border-b z-50 backdrop-blur-md flex items-center justify-between px-4 md:px-8 transition-colors duration-350 ${
+        theme === 'dark'
+          ? 'bg-slate-900/80 border-slate-800 text-slate-100'
+          : theme === 'forest'
+            ? 'bg-[#ebf3ed]/80 border-[#bcd9c4] text-[#13351e]'
+            : 'bg-white/80 border-slate-200 text-slate-800 shadow-sm'
+      }`}>
+        {/* Logo and Brand Name */}
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 bg-blue-600 rounded-lg text-white font-black shrink-0 animate-pulse">
+            <Grid3X3 size={18} />
+          </div>
+          <span className="font-black tracking-tight text-xs md:text-sm bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent">
+            {lang === 'zh' ? '像素画板' : 'Pixel Board'}
+          </span>
+        </div>
+
+        {/* Center Blog-Style Tab Links */}
+        <div className={`flex items-center p-1 rounded-xl border ${
+          theme === 'dark'
+            ? 'bg-slate-800/40 border-slate-700/60'
+            : theme === 'forest'
+              ? 'bg-[#ecf5ee]/80 border-[#bcd9c4]'
+              : 'bg-slate-100/60 border-slate-200'
+        }`}>
+          {[
+            { key: 'canvas', label: t.tab_canvas, icon: <Grid3X3 size={13} /> },
+            { key: 'tutorial', label: t.tab_tutorial, icon: <BookOpen size={13} /> },
+            { key: 'download', label: t.tab_download, icon: <FolderDown size={13} /> }
+          ].map(tab => {
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => handleTabChange(tab.key as any)}
+                className={`flex items-center gap-1.5 px-3 md:px-5 py-1.5 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer ${
+                  isActive
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : theme === 'dark'
+                      ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/45'
+                      : theme === 'forest'
+                        ? 'text-[#2e5e3a] hover:text-[#13351e] hover:bg-[#dae9de]'
+                        : 'text-slate-500 hover:text-slate-800 hover:bg-white'
+                }`}
+              >
+                {tab.icon}
+                <span className="hidden sm:inline">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Right Corner Controls */}
+        <div className="flex items-center gap-1.5">
+          <button 
+            onClick={toggleLanguage}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-extrabold transition-colors cursor-pointer ${buttonStyleClass}`}
+            title={lang === 'zh' ? 'Switch to English' : '切换为中文'}
+          >
+            <Languages size={13} />
+            <span className="hidden md:inline">{lang === 'zh' ? 'EN' : '中文'}</span>
+          </button>
+          <button 
+            onClick={() => setIsSettingsModalOpen(true)}
+            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${buttonStyleClass}`}
+            title={t.settings}
+          >
+            <SettingsIcon size={14} />
+          </button>
+        </div>
+      </nav>
+
       {/* Background decoration */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
          <div className={`absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] transition-colors duration-500 ${theme === 'dark' ? 'bg-blue-600/10' : theme === 'forest' ? 'bg-emerald-500/15' : 'bg-blue-400/20'}`}></div>
          <div className={`absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] transition-colors duration-500 ${theme === 'dark' ? 'bg-purple-600/10' : theme === 'forest' ? 'bg-teal-500/15' : 'bg-purple-400/20'}`}></div>
       </div>
 
-      <header className="mb-6 md:mb-8 z-10 text-center relative w-full max-w-6xl px-2">
-        {/* Desktop Controls */}
-        <div className="absolute right-0 top-0 hidden md:flex items-center gap-2">
-            <button 
-                onClick={toggleLanguage}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-colors text-xs font-medium ${buttonStyleClass}`}
-            >
-                <Languages size={14} />
-                {lang === 'zh' ? 'EN' : '中文'}
-            </button>
-            <button 
-                onClick={() => setIsSettingsModalOpen(true)}
-                className={`p-1.5 rounded-full border transition-colors ${buttonStyleClass}`}
-            >
-                <SettingsIcon size={14} />
-            </button>
-        </div>
-
-        {/* Mobile Controls */}
-        <div className="absolute right-0 top-[-10px] md:hidden flex gap-2">
-            <button 
-                onClick={toggleLanguage}
-                className={`p-2 rounded-full border transition-colors ${buttonStyleClass}`}
-            >
-                <Languages size={16} />
-            </button>
-             <button 
-                onClick={() => setIsSettingsModalOpen(true)}
-                className={`p-2 rounded-full border transition-colors ${buttonStyleClass}`}
-            >
-                <SettingsIcon size={16} />
-            </button>
-        </div>
-
-        <h1 className="text-3xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400 mb-2">
-          {t.title}
-        </h1>
-        <p className={subTitleClass}>{t.subtitle}</p>
-      </header>
-
-      <main className="w-full max-w-6xl z-10 flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-start justify-center">
+      {activeTab === 'canvas' && (
+        <main className="w-full max-w-6xl z-10 flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-start justify-center">
         
         {/* Left Control Panel (Mobile: Top) */}
         <section className="w-full md:w-auto order-2 md:order-1 flex justify-center">
@@ -490,6 +558,28 @@ const App: React.FC = () => {
         </section>
 
       </main>
+      )}
+
+      {activeTab === 'tutorial' && (
+        <div className="w-full max-w-6xl z-10 flex justify-center">
+          <TutorialView lang={lang} theme={theme} onNavigateToCanvas={() => handleTabChange('canvas')} />
+        </div>
+      )}
+
+      {activeTab === 'download' && (
+        <div className="w-full max-w-6xl z-10 flex justify-center">
+          <LibraryView
+            lang={lang}
+            theme={theme}
+            currentGrid={grid}
+            onLoadGrid={(newGrid) => {
+              setGrid(newGrid);
+              addToHistory(newGrid);
+            }}
+            onNavigateToCanvas={() => handleTabChange('canvas')}
+          />
+        </div>
+      )}
 
       <footer className={`mt-12 text-sm z-10 ${theme === 'dark' ? 'text-slate-600' : theme === 'forest' ? 'text-[#3e6f4f]' : 'text-slate-400'}`}>
         <p>{t.footer_text}</p>

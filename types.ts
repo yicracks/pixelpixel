@@ -36,3 +36,19 @@ export const APP_CONFIG = {
 
 // Deprecated: usage should move to APP_CONFIG.PRESETS, keeping for backward compatibility if needed temporarily
 export const PRESETS = APP_CONFIG.PRESETS;
+
+declare global {
+  interface Window {
+    // any window enhancements
+  }
+}
+
+declare module '*.txt' {
+  const content: string;
+  export default content;
+}
+
+declare module '*.txt?raw' {
+  const content: string;
+  export default content;
+}
