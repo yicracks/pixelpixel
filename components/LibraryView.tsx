@@ -149,7 +149,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                   </h3>
                   <div className="flex flex-wrap gap-2 mt-2 items-center justify-center sm:justify-start">
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${theme === 'dark' ? 'bg-slate-700/60 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
-                      📐 {cols} × {rows} {isZh ? (isImage ? '像素图' : '格点') : (isImage ? 'image' : 'grid')}
+                      📐 {isZh ? (isImage ? '像素图' : '格点') : (isImage ? 'image' : 'grid')}
                     </span>
                     <span className="text-[10px] text-emerald-500 font-bold">
                       ✓ {isZh ? '就绪' : 'Ready'}

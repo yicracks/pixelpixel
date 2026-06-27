@@ -223,7 +223,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
              label={t.tool_grid}
              theme={theme}
            />
-        </div>
+         </div>
       </div>
 
       {/* --- Tools --- */}

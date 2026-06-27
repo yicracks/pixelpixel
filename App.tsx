@@ -11,7 +11,7 @@ import { LibraryView } from './components/LibraryView';
 import { GridData, ToolType, DEFAULT_COLOR, EMPTY_COLOR, BoardStyle, Language, Theme, APP_CONFIG } from './types';
 import { processImageToGrid, exportGridToImage } from './utils/imageHelper';
 import { translations } from './utils/translations';
-import { reduceGridToAverageColors, getDominantColors, applyPaletteToGrid } from './utils/colorUtils';
+import { reduceGridToAverageColors, getDominantColors, applyPaletteToGrid, mapGridToBuckets } from './utils/colorUtils';
 
 // Helper to create a fresh grid
 const createGrid = (size: number): GridData => {
@@ -180,7 +180,7 @@ const App: React.FC = () => {
   };
 
   const handleDownload = () => {
-    exportGridToImage(grid);
+    exportGridToImage(grid, 20, boardStyle, beadSize, theme === 'dark');
   };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -188,9 +188,10 @@ const App: React.FC = () => {
     if (!file) return;
 
     try {
-      const newGrid = await processImageToGrid(file, gridSize, gridSize);
-      setGrid(newGrid);
-      addToHistory(newGrid);
+      const parsedGrid = await processImageToGrid(file, gridSize, gridSize);
+      const mappedGrid = mapGridToBuckets(parsedGrid);
+      setGrid(mappedGrid);
+      addToHistory(mappedGrid);
       // Reset file input
       e.target.value = '';
     } catch (error) {

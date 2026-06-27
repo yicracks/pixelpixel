@@ -585,3 +585,35 @@ export const applyPaletteToGrid = (grid: string[][], palette: string[]): string[
 
   return newGrid;
 };
+
+/**
+ * Maps every pixel of the grid directly to the nearest bucket color in REFERENCE_POINTS.
+ */
+export const mapGridToBuckets = (grid: string[][]): string[][] => {
+  const cache = new Map<string, string>(); // hex -> nearestBucketHex
+  return grid.map(row => 
+    row.map(color => {
+      if (color === 'transparent') return color;
+      
+      let nearestHex = cache.get(color);
+      if (!nearestHex) {
+        const rgb = hexToRgb(color);
+        if (!rgb) return color;
+
+        const lab = rgbToLab(rgb.r, rgb.g, rgb.b);
+        let minDist = Infinity;
+        nearestHex = color;
+
+        for (const ref of REFERENCE_POINTS) {
+          const dist = deltaE2000(lab, ref.lab);
+          if (dist < minDist) {
+            minDist = dist;
+            nearestHex = ref.hex;
+          }
+        }
+        cache.set(color, nearestHex);
+      }
+      return nearestHex;
+    })
+  );
+};

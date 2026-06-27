@@ -1,4 +1,4 @@
-import { GridData } from '../types';
+import { GridData, BoardStyle, EMPTY_COLOR } from '../types';
 import { rgbToHex } from './colorUtils';
 
 /**
@@ -334,9 +334,15 @@ export const processImageUrlToGrid = (
 };
 
 /**
- * Exports the current grid to a high-res PNG image.
+ * Exports the current grid to a high-res PNG image, faithfully representing styles and textures.
  */
-export const exportGridToImage = (grid: GridData, scale: number = 20) => {
+export const exportGridToImage = (
+  grid: GridData,
+  scale: number = 20,
+  boardStyle: BoardStyle = BoardStyle.SQUARE,
+  beadSize: number = 100,
+  isDark: boolean = false
+) => {
   const rows = grid.length;
   const cols = grid[0].length;
   
@@ -347,17 +353,34 @@ export const exportGridToImage = (grid: GridData, scale: number = 20) => {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  grid.forEach((row, y) => {
-    row.forEach((color, x) => {
-      if (color !== 'transparent') {
-        ctx.fillStyle = color;
-        ctx.fillRect(x * scale, y * scale, scale, scale);
+  const isBead = boardStyle === BoardStyle.BEAD;
+  
+  grid.forEach((row, r) => {
+    row.forEach((color, c) => {
+      if (color !== 'transparent' && color !== EMPTY_COLOR) {
+        const x = c * scale;
+        const y = r * scale;
+        
+        if (isBead) {
+          const actualBeadSize = scale * (beadSize / 100);
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.arc(x + scale / 2, y + scale / 2, actualBeadSize / 2, 0, Math.PI * 2);
+          ctx.fill();
+          
+          ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+          ctx.lineWidth = Math.max(0.5, scale * 0.05);
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = color;
+          ctx.fillRect(x, y, scale, scale);
+        }
       }
     });
   });
 
   const link = document.createElement('a');
-  link.download = `pixel-art-${cols}x${rows}_${Date.now()}.png`;
+  link.download = `pixel-art-${Date.now()}.png`;
   link.href = canvas.toDataURL('image/png');
   document.body.appendChild(link);
   link.click();

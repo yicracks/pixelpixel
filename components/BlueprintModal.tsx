@@ -77,7 +77,7 @@ const BlueprintModal: React.FC<BlueprintModalProps> = ({
               {isImage ? (lang === 'zh' ? '原厂参考图纸' : 'Original Reference Blueprint') : t.analyze_blueprint}
             </h2>
             <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              {isImage ? (lang === 'zh' ? '高清原图免解析预览' : 'HD representation of chosen preset') : (analysis ? `${analysis.rows} x ${analysis.cols} • ${analysis.totalColors} ${lang === 'zh' ? '种颜色' : 'Colors'}` : '')}
+              {isImage ? (lang === 'zh' ? '高清原图免解析预览' : 'HD representation of chosen preset') : (analysis ? `${analysis.totalColors} ${lang === 'zh' ? '种颜色' : 'Colors'}` : '')}
             </p>
           </div>
           <button 

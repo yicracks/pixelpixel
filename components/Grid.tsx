@@ -35,7 +35,7 @@ const Grid: React.FC<GridProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
-  const lastPos = useRef<{r: number, c: number} | null>(null);
+   const lastPos = useRef<{r: number, c: number} | null>(null);
   const gridRef = useRef<GridData>(grid);
   
   // Sync gridRef when grid prop changes from outside (e.g. undo/redo)
@@ -91,6 +91,7 @@ const Grid: React.FC<GridProps> = ({
               ctx.beginPath();
               ctx.arc(x + cellSize/2, y + cellSize/2, actualBeadSize/2, 0, Math.PI * 2);
               ctx.fill();
+
               ctx.strokeStyle = 'rgba(0,0,0,0.1)';
               ctx.lineWidth = 0.5;
               ctx.stroke();
@@ -299,19 +300,21 @@ const Grid: React.FC<GridProps> = ({
     <div 
       className={`select-none inline-block shadow-2xl p-1 rounded-sm border transition-colors duration-300 ${containerClass}`}
     >
-      <canvas
-        ref={canvasRef}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        style={{
-          display: 'block',
-          width: 'min(600px, 86vw)', 
-          aspectRatio: `${grid[0].length} / ${grid.length}`,
-          cursor: tool === ToolType.EYEDROPPER ? 'crosshair' : 'default',
-          imageRendering: 'pixelated', // Keep it sharp
-        }}
-      />
+      <div className="relative">
+        <canvas
+          ref={canvasRef}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          style={{
+            display: 'block',
+            width: 'min(600px, 86vw)', 
+            aspectRatio: `${grid[0].length} / ${grid.length}`,
+            cursor: tool === ToolType.EYEDROPPER ? 'crosshair' : 'default',
+            imageRendering: 'pixelated', // Keep it sharp
+          }}
+        />
+      </div>
     </div>
   );
 };

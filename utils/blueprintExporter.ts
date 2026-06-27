@@ -110,7 +110,7 @@ export function downloadBlueprintPNG(analysis: BlueprintAnalysis, lang: Language
   // --- Draw Title ---
   ctx.fillStyle = '#0f172a';
   ctx.font = 'bold 24px sans-serif';
-  ctx.fillText(`${lang === 'zh' ? '像素设计图纸' : 'Pixel Design Blueprint'} (${analysis.rows}x${analysis.cols})`, 0, -20);
+  ctx.fillText(`${lang === 'zh' ? '像素设计图纸' : 'Pixel Design Blueprint'}`, 0, -20);
   
   // --- Draw Grid Headers ---
   ctx.strokeStyle = '#cbd5e1';
@@ -212,7 +212,7 @@ export function downloadBlueprintPNG(analysis: BlueprintAnalysis, lang: Language
   const url = canvas.toDataURL('image/png');
   const link = document.createElement('a');
   link.href = url;
-  link.download = `blueprint_${analysis.rows}x${analysis.cols}_${Date.now()}.png`;
+  link.download = `blueprint_${Date.now()}.png`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
