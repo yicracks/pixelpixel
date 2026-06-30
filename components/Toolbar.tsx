@@ -3,7 +3,6 @@ import {
   Pencil, 
   Eraser, 
   Pipette, 
-  Grid3X3, 
   Square,
   Circle,
   Clock,
@@ -12,7 +11,10 @@ import {
   PaintBucket,
   Sparkles,
   ArrowLeftRight,
-  RefreshCw
+  RefreshCw,
+  X,
+  Component,
+  Grid3X3
 } from 'lucide-react';
 import { ToolType, APP_CONFIG, BoardStyle, Language, Theme } from '../types';
 import { translations } from '../utils/translations';
@@ -149,9 +151,11 @@ const Toolbar: React.FC<ToolbarProps> = ({
   const inputTextClass = theme === 'dark' ? 'text-white' : theme === 'forest' ? 'text-[#13351e]' : 'text-slate-800';
 
   return (
-    <div className={`flex flex-col gap-6 p-5 backdrop-blur-xl border rounded-2xl shadow-xl w-full max-w-[min(320px,88vw)] h-fit overflow-y-auto max-h-[90vh] transition-colors duration-300 ${containerClass}`}>
+    <div className={`flex flex-col md:flex-row lg:flex-col gap-6 p-5 backdrop-blur-xl border rounded-2xl shadow-xl w-full max-w-[min(320px,88vw)] md:max-w-3xl lg:max-w-[320px] h-fit md:max-h-none md:overflow-visible lg:max-h-[90vh] lg:overflow-y-auto transition-colors duration-300 ${containerClass}`}>
       
-      {/* --- Size Selector --- */}
+      {/* Left column on tablet (Settings & Tools) */}
+      <div className="flex-1 flex flex-col gap-6">
+        {/* --- Size Selector --- */}
       <div>
         <label className={`text-xs font-semibold uppercase tracking-wider mb-2 block ${labelClass}`}>
           {t.size_label}
@@ -201,12 +205,19 @@ const Toolbar: React.FC<ToolbarProps> = ({
       {/* --- Board Style --- */}
       <div>
         <label className={`text-xs font-semibold uppercase tracking-wider mb-2 block ${labelClass}`}>{t.board_style}</label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-5 gap-1 mb-3">
            <ToolButton 
              active={boardStyle === BoardStyle.SQUARE}
              onClick={() => setBoardStyle(BoardStyle.SQUARE)}
              icon={<Square size={18} />}
              label={t.style_square}
+             theme={theme}
+           />
+           <ToolButton 
+             active={boardStyle === BoardStyle.GRID_SQUARE}
+             onClick={() => setBoardStyle(BoardStyle.GRID_SQUARE)}
+             icon={<Grid3X3 size={18} />}
+             label={t.style_grid_square}
              theme={theme}
            />
            <ToolButton 
@@ -217,13 +228,20 @@ const Toolbar: React.FC<ToolbarProps> = ({
              theme={theme}
            />
            <ToolButton 
-             active={showGridLines} 
-             onClick={() => setShowGridLines(!showGridLines)} 
-             icon={<Grid3X3 size={18} />} 
-             label={t.tool_grid}
+             active={boardStyle === BoardStyle.STITCH}
+             onClick={() => setBoardStyle(BoardStyle.STITCH)}
+             icon={<X size={18} />}
+             label={t.style_stitch}
              theme={theme}
            />
-         </div>
+           <ToolButton 
+             active={boardStyle === BoardStyle.WOVEN_BEAD}
+             onClick={() => setBoardStyle(BoardStyle.WOVEN_BEAD)}
+             icon={<Component size={18} />}
+             label={t.style_woven_bead}
+             theme={theme}
+           />
+        </div>
       </div>
 
       {/* --- Tools --- */}
@@ -396,9 +414,12 @@ const Toolbar: React.FC<ToolbarProps> = ({
           </div>
         )}
       </div>
+      </div>
 
-      {/* --- Colors --- */}
-      <div>
+      {/* Right column on tablet (Color Palette & Recents) */}
+      <div className="flex-1 flex flex-col gap-6 md:border-l md:pl-6 lg:border-l-0 lg:pl-0 border-slate-200/60 dark:border-slate-700/30">
+        {/* --- Colors --- */}
+        <div>
         <label className={`text-xs font-semibold uppercase tracking-wider mb-2 block ${labelClass}`}>{t.palette_label}</label>
         <div className="grid grid-cols-6 gap-2 mb-3">
           {colors.map(c => (
@@ -459,6 +480,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
             )}
           </div>
       )}
+      </div>
     </div>
   );
 };

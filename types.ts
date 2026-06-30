@@ -17,7 +17,10 @@ export enum ToolType {
 
 export enum BoardStyle {
   SQUARE = 'SQUARE',
-  BEAD = 'BEAD'
+  GRID_SQUARE = 'GRID_SQUARE',
+  BEAD = 'BEAD',
+  STITCH = 'STITCH',
+  WOVEN_BEAD = 'WOVEN_BEAD'
 }
 
 export type Language = 'zh' | 'en';

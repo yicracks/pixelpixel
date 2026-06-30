@@ -73,8 +73,13 @@ const BlueprintModal: React.FC<BlueprintModalProps> = ({
         {/* Header */}
         <div className={`flex items-center justify-between p-6 border-b ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
           <div>
-            <h2 className="text-xl font-bold">
-              {isImage ? (lang === 'zh' ? '原厂参考图纸' : 'Original Reference Blueprint') : t.analyze_blueprint}
+            <h2 className="text-xl font-bold flex items-center gap-3 flex-wrap">
+              <span>{isImage ? (lang === 'zh' ? '原厂参考图纸' : 'Original Reference Blueprint') : t.analyze_blueprint}</span>
+              {!isImage && grid && (
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isDark ? 'bg-slate-800 text-blue-400 border border-slate-700' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
+                  {lang === 'zh' ? '图纸大小' : 'Pattern Size'}: {grid[0]?.length || 0} × {grid.length}
+                </span>
+              )}
             </h2>
             <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
               {isImage ? (lang === 'zh' ? '高清原图免解析预览' : 'HD representation of chosen preset') : (analysis ? `${analysis.totalColors} ${lang === 'zh' ? '种颜色' : 'Colors'}` : '')}

@@ -424,10 +424,10 @@ const App: React.FC = () => {
       </div>
 
       {activeTab === 'canvas' && (
-        <main className="w-full max-w-6xl z-10 flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-start justify-center">
+        <main className="w-full max-w-6xl z-10 flex flex-col lg:flex-row gap-6 lg:gap-8 items-center lg:items-start justify-center">
         
-        {/* Left Control Panel (Mobile: Top) */}
-        <section className="w-full md:w-auto order-2 md:order-1 flex justify-center">
+        {/* Left Control Panel */}
+        <section className="w-full lg:w-auto order-2 lg:order-1 flex justify-center">
           <Toolbar 
             tool={tool}
             setTool={setTool}
@@ -461,7 +461,7 @@ const App: React.FC = () => {
         </section>
 
         {/* Center Canvas */}
-        <section className={`flex-1 order-1 md:order-2 p-3 md:p-8 rounded-2xl md:rounded-3xl border shadow-2xl backdrop-blur-sm flex flex-col items-center transition-colors duration-300 ${theme === 'dark' ? 'bg-slate-800/30 border-slate-700/50' : theme === 'forest' ? 'bg-[#f4faf5be] border-[#bcd9c4]' : 'bg-white/60 border-slate-200'}`}>
+        <section className={`w-full max-w-[660px] lg:max-w-none lg:flex-1 order-1 lg:order-2 p-4 sm:p-6 lg:p-8 rounded-2xl lg:rounded-3xl border shadow-2xl backdrop-blur-sm flex flex-col items-center transition-colors duration-300 ${theme === 'dark' ? 'bg-slate-800/30 border-slate-700/50' : theme === 'forest' ? 'bg-[#f4faf5be] border-[#bcd9c4]' : 'bg-white/60 border-slate-200'}`}>
            
            {/* Canvas Header (Icons + Undo/Redo/Clear) */}
            <div className="w-full flex items-center justify-between mb-6">

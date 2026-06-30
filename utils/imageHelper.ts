@@ -354,7 +354,57 @@ export const exportGridToImage = (
   if (!ctx) return;
 
   const isBead = boardStyle === BoardStyle.BEAD;
+  const isStitch = boardStyle === BoardStyle.STITCH;
+  const isWovenBead = boardStyle === BoardStyle.WOVEN_BEAD;
   
+  // Pre-fill entire fabric/beadboard background if Stitch or Woven Bead styles are active
+  if (isStitch || isWovenBead) {
+    ctx.fillStyle = isDark ? '#0f172a' : '#ffffff'; // base background
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x = c * scale;
+        const y = r * scale;
+
+        if (isStitch) {
+          // Fill each cell with a soft linen fabric background
+          ctx.fillStyle = isDark ? '#1e293b' : '#fafaf9';
+          ctx.fillRect(x, y, scale, scale);
+        } else if (isWovenBead) {
+          // Draw subtle empty pegs or guides for the checkerboard beads
+          const isWovenBeadCell = (r + c) % 2 === 0;
+          if (!isWovenBeadCell) {
+            const pegSize = scale * 0.1;
+            ctx.fillStyle = isDark ? '#1e293b' : '#cbd5e1';
+            ctx.beginPath();
+            ctx.arc(x + scale / 2, y + scale / 2, pegSize / 2, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(x + scale / 2, y + scale / 2, (scale * 1.42) / 2, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
+    // Draw little canvas holes at intersections for stitch mode
+    if (isStitch) {
+      ctx.fillStyle = isDark ? '#475569' : '#cbd5e1';
+      const holeSize = Math.max(1, scale * 0.08);
+      for (let i = 0; i <= cols; i++) {
+        for (let j = 0; j <= rows; j++) {
+          ctx.beginPath();
+          ctx.arc(i * scale, j * scale, holeSize / 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+  }
+
   grid.forEach((row, r) => {
     row.forEach((color, c) => {
       if (color !== 'transparent' && color !== EMPTY_COLOR) {
@@ -363,17 +413,95 @@ export const exportGridToImage = (
         
         if (isBead) {
           const actualBeadSize = scale * (beadSize / 100);
+          const radius = actualBeadSize / 2;
+          const centerX = x + scale / 2;
+          const centerY = y + scale / 2;
+
+          // 1. Draw flat circle bead of the bead's color
           ctx.fillStyle = color;
           ctx.beginPath();
-          ctx.arc(x + scale / 2, y + scale / 2, actualBeadSize / 2, 0, Math.PI * 2);
+          ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
           ctx.fill();
-          
-          ctx.strokeStyle = 'rgba(0,0,0,0.1)';
-          ctx.lineWidth = Math.max(0.5, scale * 0.05);
+
+          // 2. Subtle flat contour outline to make them distinct
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
+          ctx.lineWidth = Math.max(0.5, scale * 0.02);
           ctx.stroke();
+        } else if (isWovenBead) {
+          const isWovenBeadCell = (r + c) % 2 === 0;
+          if (isWovenBeadCell) {
+            const radius = (scale * 1.42) / 2;
+            const centerX = x + scale / 2;
+            const centerY = y + scale / 2;
+
+            // 1. Solid base
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 2. Radial shading
+            const shadowGrad = ctx.createRadialGradient(
+              centerX, centerY, radius * 0.4,
+              centerX, centerY, radius
+            );
+            shadowGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+            shadowGrad.addColorStop(1, 'rgba(0, 0, 0, 0.15)');
+            ctx.fillStyle = shadowGrad;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 3. Highlight
+            const highlightGrad = ctx.createRadialGradient(
+              centerX - radius * 0.35, centerY - radius * 0.35, 0,
+              centerX - radius * 0.35, centerY - radius * 0.35, radius * 0.4
+            );
+            highlightGrad.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
+            highlightGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.fillStyle = highlightGrad;
+            ctx.beginPath();
+            ctx.arc(centerX - radius * 0.35, centerY - radius * 0.35, radius * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 4. Contour stroke
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
+            ctx.lineWidth = Math.max(0.5, scale * 0.05);
+            ctx.stroke();
+          }
+        } else if (isStitch) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(x, y, scale, scale);
+          ctx.clip();
+
+          // Draw cross-stitch "X" lines in cell's color
+          ctx.strokeStyle = color;
+          ctx.lineWidth = scale * 0.45; // thick puffy thread lines to close gaps
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          const pad = -0.5; // slight overlap extension to eliminate rendering gaps at boundaries
+          ctx.moveTo(x + pad, y + pad);
+          ctx.lineTo(x + scale - pad, y + scale - pad);
+          ctx.moveTo(x + scale - pad, y + pad);
+          ctx.lineTo(x + pad, y + scale - pad);
+          ctx.stroke();
+          ctx.stroke();
+
+          ctx.restore();
+        } else if (boardStyle === BoardStyle.SQUARE) {
+          ctx.fillStyle = color;
+          // Use overlap to guarantee perfect integration/seamlessness with zero faint subpixel gaps
+          ctx.fillRect(x - 0.25, y - 0.25, scale + 0.5, scale + 0.5);
         } else {
+          // BoardStyle.GRID_SQUARE
           ctx.fillStyle = color;
           ctx.fillRect(x, y, scale, scale);
+
+          // Draw a subtle tile boundary line to keep them distinct as individual square tiles
+          ctx.strokeStyle = isDark ? 'rgba(51, 65, 85, 0.4)' : 'rgba(226, 232, 240, 0.7)';
+          ctx.lineWidth = Math.max(0.5, scale * 0.03);
+          ctx.strokeRect(x, y, scale, scale);
         }
       }
     });
