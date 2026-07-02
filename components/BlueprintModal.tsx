@@ -77,7 +77,7 @@ const BlueprintModal: React.FC<BlueprintModalProps> = ({
               <span>{isImage ? (lang === 'zh' ? '原厂参考图纸' : 'Original Reference Blueprint') : t.analyze_blueprint}</span>
               {!isImage && grid && (
                 <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isDark ? 'bg-slate-800 text-blue-400 border border-slate-700' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
-                  {lang === 'zh' ? '图纸大小' : 'Pattern Size'}: {grid[0]?.length || 0} × {grid.length}
+                  {lang === 'zh' ? '图纸大小' : 'Pattern Size'}: {analysis ? analysis.cols : (grid[0]?.length || 0)} × {analysis ? analysis.rows : grid.length}
                 </span>
               )}
             </h2>
