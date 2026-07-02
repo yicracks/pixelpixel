@@ -558,7 +558,7 @@ const Grid: React.FC<GridProps> = ({
 
   return (
     <div 
-      className={`select-none w-full max-w-[600px] block shadow-2xl p-1 rounded-sm border transition-colors duration-300 ${containerClass}`}
+      className={`select-none w-full max-w-[900px] block shadow-2xl p-1 rounded-sm border transition-colors duration-300 ${containerClass}`}
     >
       <div className="relative w-full">
         <canvas
