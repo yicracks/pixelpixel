@@ -12,7 +12,12 @@ export enum ToolType {
   FILL = 'FILL',
   FLOOD_ERASE = 'FLOOD_ERASE',
   EYEDROPPER = 'EYEDROPPER',
-  REPLACE = 'REPLACE'
+  REPLACE = 'REPLACE',
+  LINE = 'LINE',
+  CIRCLE = 'CIRCLE',
+  ELLIPSE = 'ELLIPSE',
+  RECTANGLE = 'RECTANGLE',
+  SQUARE = 'SQUARE'
 }
 
 export enum BoardStyle {

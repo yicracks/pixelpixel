@@ -2,6 +2,232 @@ import React, { useRef, useEffect, useCallback } from 'react';
 import { GridData, ToolType, EMPTY_COLOR, BoardStyle, Language, Theme } from '../types';
 import { translations } from '../utils/translations';
 
+// Helper algorithms for pixel-art shapes
+const getLinePixels = (r0: number, c0: number, r1: number, c1: number): { r: number; c: number }[] => {
+  const pixels: { r: number; c: number }[] = [];
+  const dr = Math.abs(r1 - r0);
+  const dc = Math.abs(c1 - c0);
+  const sr = r0 < r1 ? 1 : -1;
+  const sc = c0 < c1 ? 1 : -1;
+  let err = dc - dr;
+
+  let r = r0;
+  let c = c0;
+
+  while (true) {
+    pixels.push({ r, c });
+    if (r === r1 && c === c1) break;
+    const e2 = 2 * err;
+    if (e2 > -dr) {
+      err -= dr;
+      c += sc;
+    }
+    if (e2 < dc) {
+      err += dc;
+      r += sr;
+    }
+  }
+  return pixels;
+};
+
+const getCirclePixels = (r0: number, c0: number, r1: number, c1: number): { r: number; c: number }[] => {
+  const pixels: { r: number; c: number }[] = [];
+  const radius = Math.round(Math.sqrt(Math.pow(r1 - r0, 2) + Math.pow(c1 - c0, 2)));
+  if (radius === 0) {
+    pixels.push({ r: r0, c: c0 });
+    return pixels;
+  }
+
+  const addPixel = (r: number, c: number) => {
+    pixels.push({ r, c });
+  };
+
+  let x = radius;
+  let y = 0;
+  let err = 1 - x;
+
+  const drawCirclePoints = (cx: number, cy: number, x: number, y: number) => {
+    addPixel(cx + x, cy + y);
+    addPixel(cx - x, cy + y);
+    addPixel(cx + x, cy - y);
+    addPixel(cx - x, cy - y);
+    addPixel(cx + y, cy + x);
+    addPixel(cx - y, cy + x);
+    addPixel(cx + y, cy - x);
+    addPixel(cx - y, cy - x);
+  };
+
+  drawCirclePoints(r0, c0, x, y);
+
+  while (x > y) {
+    y++;
+    if (err < 0) {
+      err += 2 * y + 1;
+    } else {
+      x--;
+      err += 2 * (y - x) + 1;
+    }
+    drawCirclePoints(r0, c0, x, y);
+  }
+
+  return pixels;
+};
+
+const getEllipsePixels = (r0: number, c0: number, r1: number, c1: number): { r: number; c: number }[] => {
+  const pixels: { r: number; c: number }[] = [];
+  const x0 = c0;
+  const y0 = r0;
+  const x1 = c1;
+  const y1 = r1;
+
+  let xStart = x0;
+  let xEnd = x1;
+  let yStart = y0;
+  let yEnd = y1;
+  if (xStart > xEnd) { [xStart, xEnd] = [xEnd, xStart]; }
+  if (yStart > yEnd) { [yStart, yEnd] = [yEnd, yStart]; }
+
+  const rx = Math.round((xEnd - xStart) / 2);
+  const ry = Math.round((yEnd - yStart) / 2);
+  const cx = xStart + rx;
+  const cy = yStart + ry;
+
+  const addPixel = (r: number, c: number) => {
+    pixels.push({ r, c });
+  };
+
+  if (rx === 0) {
+    for (let r = yStart; r <= yEnd; r++) addPixel(r, cx);
+    return pixels;
+  }
+  if (ry === 0) {
+    for (let c = xStart; c <= xEnd; c++) addPixel(cy, c);
+    return pixels;
+  }
+
+  let xx = 0;
+  let yy = ry;
+  let rx2 = rx * rx;
+  let ry2 = ry * ry;
+  let p = ry2 - rx2 * ry + 0.25 * rx2;
+
+  const plotEllipsePoints = (cx: number, cy: number, x: number, y: number) => {
+    addPixel(cy + y, cx + x);
+    addPixel(cy + y, cx - x);
+    addPixel(cy - y, cx + x);
+    addPixel(cy - y, cx - x);
+  };
+
+  plotEllipsePoints(cx, cy, xx, yy);
+
+  while (2 * ry2 * xx < 2 * rx2 * yy) {
+    xx++;
+    if (p < 0) {
+      p += 2 * ry2 * xx + ry2;
+    } else {
+      yy--;
+      p += 2 * ry2 * xx - 2 * rx2 * yy + ry2;
+    }
+    plotEllipsePoints(cx, cy, xx, yy);
+  }
+
+  p = ry2 * (xx + 0.5) * (xx + 0.5) + rx2 * (yy - 1) * (yy - 1) - rx2 * ry2;
+  while (yy > 0) {
+    yy--;
+    if (p > 0) {
+      p += -2 * rx2 * yy + rx2;
+    } else {
+      xx++;
+      p += 2 * ry2 * xx - 2 * rx2 * yy + rx2;
+    }
+    plotEllipsePoints(cx, cy, xx, yy);
+  }
+
+  return pixels;
+};
+
+const getRectanglePixels = (r0: number, c0: number, r1: number, c1: number): { r: number; c: number }[] => {
+  const pixels: { r: number; c: number }[] = [];
+  const rMin = Math.min(r0, r1);
+  const rMax = Math.max(r0, r1);
+  const cMin = Math.min(c0, c1);
+  const cMax = Math.max(c0, c1);
+
+  for (let r = rMin; r <= rMax; r++) {
+    for (let c = cMin; c <= cMax; c++) {
+      if (r === rMin || r === rMax || c === cMin || c === cMax) {
+        pixels.push({ r, c });
+      }
+    }
+  }
+  return pixels;
+};
+
+const getSquarePixels = (r0: number, c0: number, r1: number, c1: number): { r: number; c: number }[] => {
+  const pixels: { r: number; c: number }[] = [];
+  const S = Math.max(Math.abs(r1 - r0), Math.abs(c1 - c0));
+  const sr = r1 >= r0 ? 1 : -1;
+  const sc = c1 >= c0 ? 1 : -1;
+
+  const rEnd = r0 + S * sr;
+  const cEnd = c0 + S * sc;
+
+  const rMin = Math.min(r0, rEnd);
+  const rMax = Math.max(r0, rEnd);
+  const cMin = Math.min(c0, cEnd);
+  const cMax = Math.max(c0, cEnd);
+
+  for (let r = rMin; r <= rMax; r++) {
+    for (let c = cMin; c <= cMax; c++) {
+      if (r === rMin || r === rMax || c === cMin || c === cMax) {
+        pixels.push({ r, c });
+      }
+    }
+  }
+  return pixels;
+};
+
+const expandPointsWithBrush = (
+  points: { r: number; c: number }[],
+  D: number,
+  rows: number,
+  cols: number,
+  boardStyle: BoardStyle
+): { r: number; c: number }[] => {
+  if (D <= 1) return points;
+  const expandedMap = new Map<string, { r: number; c: number }>();
+  const dSq = (D / 2) * (D / 2);
+  const half = (D - 1) / 2;
+
+  for (const pt of points) {
+    const rStart = Math.max(0, Math.floor(pt.r - half));
+    const rEnd = Math.min(rows - 1, Math.ceil(pt.r + half));
+    const cStart = Math.max(0, Math.floor(pt.c - half));
+    const cEnd = Math.min(cols - 1, Math.ceil(pt.c + half));
+
+    for (let r = rStart; r <= rEnd; r++) {
+      for (let c = cStart; c <= cEnd; c++) {
+        let distSq;
+        if (D % 2 === 0) {
+          const dr = r - (pt.r + 0.5);
+          const dc = c - (pt.c + 0.5);
+          distSq = dr * dr + dc * dc;
+        } else {
+          const dr = r - pt.r;
+          const dc = c - pt.c;
+          distSq = dr * dr + dc * dc;
+        }
+        if (distSq <= dSq) {
+          if (boardStyle !== BoardStyle.WOVEN_BEAD || (r + c) % 2 === 0) {
+            expandedMap.set(`${r},${c}`, { r, c });
+          }
+        }
+      }
+    }
+  }
+  return Array.from(expandedMap.values());
+};
+
 interface GridProps {
   grid: GridData;
   setGrid: React.Dispatch<React.SetStateAction<GridData>>;
@@ -35,8 +261,21 @@ const Grid: React.FC<GridProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
-   const lastPos = useRef<{r: number, c: number} | null>(null);
+  const lastPos = useRef<{r: number, c: number} | null>(null);
+  const startPos = useRef<{r: number, c: number} | null>(null);
+  const currentDragPos = useRef<{r: number, c: number} | null>(null);
   const gridRef = useRef<GridData>(grid);
+
+  const toolRef = useRef<ToolType>(tool);
+  const activeColorRef = useRef<string>(activeColor);
+
+  useEffect(() => {
+    toolRef.current = tool;
+  }, [tool]);
+
+  useEffect(() => {
+    activeColorRef.current = activeColor;
+  }, [activeColor]);
   
   // Sync gridRef when grid prop changes from outside (e.g. undo/redo)
   useEffect(() => {
@@ -218,6 +457,168 @@ const Grid: React.FC<GridProps> = ({
       }
     }
 
+    // Render shape preview overlay if drawing with a shape tool
+    if (isDrawing.current && startPos.current && currentDragPos.current) {
+      const toolVal = toolRef.current;
+      const targetColor = activeColorRef.current;
+      
+      const isShapeTool = 
+        toolVal === ToolType.LINE ||
+        toolVal === ToolType.CIRCLE ||
+        toolVal === ToolType.ELLIPSE ||
+        toolVal === ToolType.RECTANGLE ||
+        toolVal === ToolType.SQUARE;
+
+      if (isShapeTool) {
+        let shapePts: {r: number, c: number}[] = [];
+        const r0 = startPos.current.r;
+        const c0 = startPos.current.c;
+        const r1 = currentDragPos.current.r;
+        const c1 = currentDragPos.current.c;
+
+        if (toolVal === ToolType.LINE) {
+          shapePts = getLinePixels(r0, c0, r1, c1);
+        } else if (toolVal === ToolType.CIRCLE) {
+          shapePts = getCirclePixels(r0, c0, r1, c1);
+        } else if (toolVal === ToolType.ELLIPSE) {
+          shapePts = getEllipsePixels(r0, c0, r1, c1);
+        } else if (toolVal === ToolType.RECTANGLE) {
+          shapePts = getRectanglePixels(r0, c0, r1, c1);
+        } else if (toolVal === ToolType.SQUARE) {
+          shapePts = getSquarePixels(r0, c0, r1, c1);
+        }
+
+        const finalPts = expandPointsWithBrush(shapePts, brushSize, rows, cols, boardStyle);
+
+        for (const pt of finalPts) {
+          if (pt.r >= 0 && pt.r < rows && pt.c >= 0 && pt.c < cols) {
+            const x = pt.c * cellSize;
+            const y = pt.r * cellSize;
+            const isTransparent = targetColor === 'transparent' || targetColor === EMPTY_COLOR;
+
+            if (isBead) {
+               if (isTransparent) {
+                  const pegSize = cellSize * 0.2;
+                  ctx.fillStyle = emptyPegColor;
+                  ctx.beginPath();
+                  ctx.arc(x + cellSize/2, y + cellSize/2, pegSize/2, 0, Math.PI * 2);
+                  ctx.fill();
+                } else {
+                  const actualBeadSize = cellSize * (beadSize / 100);
+                  const radius = actualBeadSize / 2;
+                  const centerX = x + cellSize / 2;
+                  const centerY = y + cellSize / 2;
+
+                  ctx.fillStyle = targetColor;
+                  ctx.beginPath();
+                  ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                  ctx.fill();
+
+                  ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
+                  ctx.lineWidth = 0.5;
+                  ctx.stroke();
+               }
+            } else if (isWovenBead) {
+               const isWovenBeadCell = (pt.r + pt.c) % 2 === 0;
+               if (isWovenBeadCell) {
+                 if (isTransparent) {
+                    const pegSize = cellSize * 0.25;
+                    ctx.fillStyle = emptyPegColor;
+                    ctx.beginPath();
+                    ctx.arc(x + cellSize/2, y + cellSize/2, pegSize/2, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.arc(x + cellSize/2, y + cellSize/2, (cellSize * 1.42) / 2, 0, Math.PI * 2);
+                    ctx.stroke();
+                 } else {
+                    const radius = (cellSize * 1.42) / 2;
+                    const centerX = x + cellSize/2;
+                    const centerY = y + cellSize/2;
+
+                    ctx.fillStyle = targetColor;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    const shadowGrad = ctx.createRadialGradient(
+                      centerX, centerY, radius * 0.4,
+                      centerX, centerY, radius
+                    );
+                    shadowGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+                    shadowGrad.addColorStop(1, 'rgba(0, 0, 0, 0.15)');
+                    ctx.fillStyle = shadowGrad;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    const highlightGrad = ctx.createRadialGradient(
+                      centerX - radius * 0.35, centerY - radius * 0.35, 0,
+                      centerX - radius * 0.35, centerY - radius * 0.35, radius * 0.4
+                    );
+                    highlightGrad.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
+                    highlightGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                    ctx.fillStyle = highlightGrad;
+                    ctx.beginPath();
+                    ctx.arc(centerX - radius * 0.35, centerY - radius * 0.35, radius * 0.4, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
+                    ctx.lineWidth = 0.5;
+                    ctx.stroke();
+                 }
+               }
+            } else if (isStitch) {
+               if (isTransparent) {
+                 ctx.fillStyle = (pt.r + pt.c) % 2 === 0 ? bgPatternColor : (isDark ? '#0f172a' : '#ffffff');
+                 ctx.fillRect(x, y, cellSize, cellSize);
+               } else {
+                 ctx.save();
+                 ctx.beginPath();
+                 ctx.rect(x, y, cellSize, cellSize);
+                 ctx.clip();
+
+                 ctx.fillStyle = isDark ? '#1e293b' : '#fafaf9';
+                 ctx.fillRect(x, y, cellSize, cellSize);
+
+                 ctx.strokeStyle = targetColor;
+                 ctx.lineWidth = cellSize * 0.45;
+                 ctx.lineCap = 'round';
+                 ctx.beginPath();
+                 const pad = -0.5;
+                 ctx.moveTo(x + pad, y + pad);
+                 ctx.lineTo(x + cellSize - pad, y + cellSize - pad);
+                 ctx.moveTo(x + cellSize - pad, y + pad);
+                 ctx.lineTo(x + pad, y + cellSize - pad);
+                 ctx.stroke();
+                 ctx.stroke();
+
+                 ctx.restore();
+               }
+            } else if (boardStyle === BoardStyle.SQUARE) {
+              if (isTransparent) {
+                ctx.fillStyle = (pt.r + pt.c) % 2 === 0 ? bgPatternColor : (isDark ? '#0f172a' : '#ffffff');
+                ctx.fillRect(x, y, cellSize, cellSize);
+              } else {
+                ctx.fillStyle = targetColor;
+                ctx.fillRect(x - 0.25, y - 0.25, cellSize + 0.5, cellSize + 0.5);
+              }
+            } else {
+              if (isTransparent) {
+                ctx.fillStyle = (pt.r + pt.c) % 2 === 0 ? bgPatternColor : (isDark ? '#0f172a' : '#ffffff');
+                ctx.fillRect(x, y, cellSize, cellSize);
+              } else {
+                ctx.fillStyle = targetColor;
+                ctx.fillRect(x, y, cellSize, cellSize);
+              }
+            }
+          }
+        }
+      }
+    }
+
     // Draw little canvas holes at intersections for stitch mode
     if (boardStyle === BoardStyle.STITCH) {
       ctx.fillStyle = isDark ? '#475569' : '#cbd5e1';
@@ -245,7 +646,7 @@ const Grid: React.FC<GridProps> = ({
       }
       ctx.stroke();
     }
-  }, [boardStyle, beadSize, isDark, showGridLines]);
+  }, [boardStyle, beadSize, isDark, showGridLines, brushSize]);
 
   useEffect(() => {
     draw();
@@ -449,8 +850,22 @@ const Grid: React.FC<GridProps> = ({
         return;
       }
       isDrawing.current = true;
+      startPos.current = pos;
+      currentDragPos.current = pos;
       lastPos.current = pos;
-      paintCell(pos.r, pos.c);
+
+      const isShapeTool = 
+        tool === ToolType.LINE ||
+        tool === ToolType.CIRCLE ||
+        tool === ToolType.ELLIPSE ||
+        tool === ToolType.RECTANGLE ||
+        tool === ToolType.SQUARE;
+
+      if (!isShapeTool) {
+        paintCell(pos.r, pos.c);
+      } else {
+        requestAnimationFrame(draw);
+      }
     }
   };
 
@@ -459,13 +874,27 @@ const Grid: React.FC<GridProps> = ({
     if (tool === ToolType.FILL || tool === ToolType.FLOOD_ERASE || tool === ToolType.EYEDROPPER) return;
     const pos = getGridPos(e);
     if (pos) {
-      if (!lastPos.current || lastPos.current.r !== pos.r || lastPos.current.c !== pos.c) {
-        if (lastPos.current) {
-          paintLine(lastPos.current.r, lastPos.current.c, pos.r, pos.c);
-        } else {
-          paintCell(pos.r, pos.c);
+      const isShapeTool = 
+        tool === ToolType.LINE ||
+        tool === ToolType.CIRCLE ||
+        tool === ToolType.ELLIPSE ||
+        tool === ToolType.RECTANGLE ||
+        tool === ToolType.SQUARE;
+
+      if (isShapeTool) {
+        if (!currentDragPos.current || currentDragPos.current.r !== pos.r || currentDragPos.current.c !== pos.c) {
+          currentDragPos.current = pos;
+          requestAnimationFrame(draw);
         }
-        lastPos.current = pos;
+      } else {
+        if (!lastPos.current || lastPos.current.r !== pos.r || lastPos.current.c !== pos.c) {
+          if (lastPos.current) {
+            paintLine(lastPos.current.r, lastPos.current.c, pos.r, pos.c);
+          } else {
+            paintCell(pos.r, pos.c);
+          }
+          lastPos.current = pos;
+        }
       }
     }
   };
@@ -486,8 +915,22 @@ const Grid: React.FC<GridProps> = ({
         e.preventDefault();
       }
       isDrawing.current = true;
+      startPos.current = pos;
+      currentDragPos.current = pos;
       lastPos.current = pos;
-      paintCell(pos.r, pos.c);
+
+      const isShapeTool = 
+        tool === ToolType.LINE ||
+        tool === ToolType.CIRCLE ||
+        tool === ToolType.ELLIPSE ||
+        tool === ToolType.RECTANGLE ||
+        tool === ToolType.SQUARE;
+
+      if (!isShapeTool) {
+        paintCell(pos.r, pos.c);
+      } else {
+        requestAnimationFrame(draw);
+      }
     }
   };
 
@@ -501,13 +944,27 @@ const Grid: React.FC<GridProps> = ({
     }
     const pos = getGridPos(e);
     if (pos) {
-      if (!lastPos.current || lastPos.current.r !== pos.r || lastPos.current.c !== pos.c) {
-        if (lastPos.current) {
-          paintLine(lastPos.current.r, lastPos.current.c, pos.r, pos.c);
-        } else {
-          paintCell(pos.r, pos.c);
+      const isShapeTool = 
+        tool === ToolType.LINE ||
+        tool === ToolType.CIRCLE ||
+        tool === ToolType.ELLIPSE ||
+        tool === ToolType.RECTANGLE ||
+        tool === ToolType.SQUARE;
+
+      if (isShapeTool) {
+        if (!currentDragPos.current || currentDragPos.current.r !== pos.r || currentDragPos.current.c !== pos.c) {
+          currentDragPos.current = pos;
+          requestAnimationFrame(draw);
         }
-        lastPos.current = pos;
+      } else {
+        if (!lastPos.current || lastPos.current.r !== pos.r || lastPos.current.c !== pos.c) {
+          if (lastPos.current) {
+            paintLine(lastPos.current.r, lastPos.current.c, pos.r, pos.c);
+          } else {
+            paintCell(pos.r, pos.c);
+          }
+          lastPos.current = pos;
+        }
       }
     }
   };
@@ -524,13 +981,56 @@ const Grid: React.FC<GridProps> = ({
   const handleMouseUp = useCallback(() => {
     if (isDrawing.current) {
       isDrawing.current = false;
+
+      const toolVal = toolRef.current;
+      const r0 = startPos.current?.r;
+      const c0 = startPos.current?.c;
+      const r1 = currentDragPos.current?.r;
+      const c1 = currentDragPos.current?.c;
+
+      const isShapeTool = 
+        toolVal === ToolType.LINE ||
+        toolVal === ToolType.CIRCLE ||
+        toolVal === ToolType.ELLIPSE ||
+        toolVal === ToolType.RECTANGLE ||
+        toolVal === ToolType.SQUARE;
+
+      if (isShapeTool && r0 !== undefined && c0 !== undefined && r1 !== undefined && c1 !== undefined) {
+        let shapePts: {r: number, c: number}[] = [];
+        if (toolVal === ToolType.LINE) {
+          shapePts = getLinePixels(r0, c0, r1, c1);
+        } else if (toolVal === ToolType.CIRCLE) {
+          shapePts = getCirclePixels(r0, c0, r1, c1);
+        } else if (toolVal === ToolType.ELLIPSE) {
+          shapePts = getEllipsePixels(r0, c0, r1, c1);
+        } else if (toolVal === ToolType.RECTANGLE) {
+          shapePts = getRectanglePixels(r0, c0, r1, c1);
+        } else if (toolVal === ToolType.SQUARE) {
+          shapePts = getSquarePixels(r0, c0, r1, c1);
+        }
+
+        const rows = gridRef.current.length;
+        const cols = gridRef.current[0].length;
+        const finalPts = expandPointsWithBrush(shapePts, brushSize, rows, cols, boardStyle);
+        const targetColor = activeColorRef.current;
+
+        for (const pt of finalPts) {
+          if (pt.r >= 0 && pt.r < rows && pt.c >= 0 && pt.c < cols) {
+            gridRef.current[pt.r][pt.c] = targetColor;
+          }
+        }
+      }
+
+      startPos.current = null;
+      currentDragPos.current = null;
       lastPos.current = null;
+
       // Now sync internal grid back to React state and history
       const finalGrid = gridRef.current.map(row => [...row]);
       setGrid(finalGrid);
       if (onStrokeEnd) onStrokeEnd();
     }
-  }, [onStrokeEnd, setGrid]);
+  }, [onStrokeEnd, setGrid, brushSize, boardStyle]);
 
   useEffect(() => {
     const handleGlobalMouseMove = (e: MouseEvent) => handleMouseMove(e);

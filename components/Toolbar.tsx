@@ -14,10 +14,24 @@ import {
   RefreshCw,
   X,
   Component,
-  Grid3X3
+  Grid3X3,
+  Slash
 } from 'lucide-react';
 import { ToolType, APP_CONFIG, BoardStyle, Language, Theme } from '../types';
 import { translations } from '../utils/translations';
+
+// Custom inline SVG icons for robust ellipse/rectangle rendering
+const EllipseIcon = ({ size = 18 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <ellipse cx="12" cy="12" rx="10" ry="6" />
+  </svg>
+);
+
+const RectangleIcon = ({ size = 18 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="5" width="20" height="14" rx="2" />
+  </svg>
+);
 
 interface ToolbarProps {
   tool: ToolType;
@@ -247,6 +261,8 @@ const Toolbar: React.FC<ToolbarProps> = ({
       {/* --- Tools --- */}
       <div>
         <label className={`text-xs font-semibold uppercase tracking-wider mb-2 block ${labelClass}`}>{t.tools_label}</label>
+        
+        {/* Group 1: Drawing & Shape Tools */}
         <div className="grid grid-cols-3 gap-2">
           <ToolButton 
             active={tool === ToolType.PEN} 
@@ -255,6 +271,48 @@ const Toolbar: React.FC<ToolbarProps> = ({
             label={t.tool_pen}
             theme={theme}
           />
+          <ToolButton 
+            active={tool === ToolType.LINE} 
+            onClick={() => setTool(ToolType.LINE)} 
+            icon={<Slash size={18} />} 
+            label={t.tool_line}
+            theme={theme}
+          />
+          <ToolButton 
+            active={tool === ToolType.CIRCLE} 
+            onClick={() => setTool(ToolType.CIRCLE)} 
+            icon={<Circle size={18} />} 
+            label={t.tool_circle}
+            theme={theme}
+          />
+          <ToolButton 
+            active={tool === ToolType.ELLIPSE} 
+            onClick={() => setTool(ToolType.ELLIPSE)} 
+            icon={<EllipseIcon size={18} />} 
+            label={t.tool_ellipse}
+            theme={theme}
+          />
+          <ToolButton 
+            active={tool === ToolType.RECTANGLE} 
+            onClick={() => setTool(ToolType.RECTANGLE)} 
+            icon={<RectangleIcon size={18} />} 
+            label={t.tool_rectangle}
+            theme={theme}
+          />
+          <ToolButton 
+            active={tool === ToolType.SQUARE} 
+            onClick={() => setTool(ToolType.SQUARE)} 
+            icon={<Square size={18} />} 
+            label={t.tool_square}
+            theme={theme}
+          />
+        </div>
+
+        {/* Subtle, unobtrusive separator */}
+        <div className="my-3 border-t border-slate-200/40 dark:border-slate-800/60" />
+
+        {/* Group 2: Editing & Utilities */}
+        <div className="grid grid-cols-3 gap-2">
           <ToolButton 
             active={tool === ToolType.ERASER} 
             onClick={() => setTool(ToolType.ERASER)} 
@@ -300,21 +358,13 @@ const Toolbar: React.FC<ToolbarProps> = ({
             label={t.tool_replace}
             theme={theme}
           />
-        </div>
-
-        {/* Action Button: Denoise */}
-        <div className="mt-2">
-          <button
-            type="button"
-            onClick={onDenoise}
-            className={`
-              flex items-center justify-center gap-2 p-2.5 rounded-xl transition-all w-full text-xs font-semibold
-              ${isDark ? 'bg-slate-700/60 text-slate-200 hover:bg-slate-600' : 'bg-slate-150 text-slate-600 hover:bg-slate-200'}
-            `}
-          >
-            <Sparkles size={16} className="text-amber-400 animate-pulse" />
-            <span>{t.tool_denoise}</span>
-          </button>
+          <ToolButton 
+            active={false} 
+            onClick={onDenoise} 
+            icon={<Sparkles size={18} className="text-amber-400" />} 
+            label={t.tool_denoise}
+            theme={theme}
+          />
         </div>
 
         {/* Color Replacement options panel shown if REPLACE is active */}
